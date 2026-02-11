@@ -95,16 +95,20 @@ SimpleSQL is distributed as a **[Virion](https://github.com/poggit/support/blob/
 
 ### Using Poggit
 
-Add SimpleSQL as a library in your `.poggit.yml`:
+Add SimpleSQL **and** its dependency [libasynql](https://github.com/poggit/libasynql) as libraries in your `.poggit.yml`:
 
 ```yaml
 projects:
   YourPlugin:
     path: ""
     libs:
-      - src: NhanAZ/SimpleSQL/SimpleSQL
+      - src: NhanAZ-Libraries/SimpleSQL/SimpleSQL
         version: ^1.0.0
+      - src: poggit/libasynql/libasynql
+        version: ^4.0.0
 ```
+
+> **Note:** Poggit does not resolve transitive virion dependencies automatically. Since SimpleSQL uses libasynql internally, you **must** include both virions in your `libs` list.
 
 ### Manual Installation (DEVirion)
 
