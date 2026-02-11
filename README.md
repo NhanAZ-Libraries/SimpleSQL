@@ -118,7 +118,7 @@ projects:
 
 ### SQL Resource Files
 
-Your plugin **must** include the SQL resource files. Create the following files in your plugin's `resources/` directory:
+Your plugin **must** include the SQL resource files. Copy them from SimpleSQL's [`resources/simplesql/`](resources/simplesql/) into your plugin:
 
 ```
 your-plugin/
@@ -131,7 +131,7 @@ your-plugin/
 └── plugin.yml
 ```
 
-You can copy them from the [examples/SimpleEconomy/resources/simplesql/](examples/SimpleEconomy/resources/simplesql/) directory. These files define the table schema and prepared statements that SimpleSQL uses internally.
+These files define the table schema and prepared statements that SimpleSQL uses internally.
 
 > **Important:** Each SQL file **must** start with a dialect declaration on the very first line (`-- #!sqlite` or `-- #!mysql`). See the [libasynql Prepared Statement File format](https://poggit.github.io/libasynql/doxygen/) for details.
 
