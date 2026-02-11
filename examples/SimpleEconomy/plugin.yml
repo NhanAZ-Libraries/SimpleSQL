@@ -1,0 +1,31 @@
+name: SimpleEconomy
+main: NhanAZ\SimpleEconomy\Main
+version: 1.0.0
+api: 5.0.0
+author: NhanAZ
+description: "A simple economy plugin powered by SimpleSQL — demonstrates the Hybrid SQL-YAML pattern."
+
+commands:
+  money:
+    description: "View your balance or another player's balance."
+    usage: "/money [player]"
+    permission: simpleeconomy.command.money
+  pay:
+    description: "Transfer money to another player."
+    usage: "/pay <player> <amount>"
+    permission: simpleeconomy.command.pay
+  setmoney:
+    description: "Set a player's balance (OP only)."
+    usage: "/setmoney <player> <amount>"
+    permission: simpleeconomy.command.setmoney
+
+permissions:
+  simpleeconomy.command.money:
+    description: "View balances."
+    default: true
+  simpleeconomy.command.pay:
+    description: "Transfer money."
+    default: true
+  simpleeconomy.command.setmoney:
+    description: "Set a player's balance."
+    default: op

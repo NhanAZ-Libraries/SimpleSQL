@@ -1,0 +1,22 @@
+# ──────────────────────────────────────────────────────────
+#  SimpleEconomy — Configuration
+# ──────────────────────────────────────────────────────────
+
+# Starting balance for new players.
+default-balance: 1000
+
+# Currency symbol displayed in messages.
+currency-symbol: "$"
+
+# Database configuration (passed directly to SimpleSQL / libasynql).
+database:
+  # Database type: "sqlite" or "mysql"
+  type: sqlite
+  sqlite:
+    file: economy.sqlite
+  mysql:
+    host: 127.0.0.1
+    username: root
+    password: ""
+    schema: simple_economy
+  worker-limit: 1
