@@ -1,3 +1,4 @@
+-- #!sqlite
 -- #{ simplesql
     -- #{ init
         CREATE TABLE IF NOT EXISTS simplesql_data (
