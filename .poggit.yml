@@ -8,6 +8,8 @@ projects:
     libs:
       - src: NhanAZ-Libraries/SimpleSQL/SimpleSQL
         version: ^1.0.0
+      - src: poggit/libasynql/libasynql
+        version: ^4.0.0
   SimpleSQL:
     path: ""
     model: virion
