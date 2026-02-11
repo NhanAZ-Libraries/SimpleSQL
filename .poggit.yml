@@ -5,6 +5,9 @@ branches:
 projects:
   examples.SimpleEconomy:
     path: examples/SimpleEconomy/
+    libs:
+      - src: NhanAZ-Libraries/SimpleSQL/SimpleSQL
+        version: ^1.0.0
   SimpleSQL:
     path: ""
     model: virion
