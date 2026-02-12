@@ -109,6 +109,11 @@ class Main extends PluginBase implements Listener {
 		// Events
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 
+		// ScoreHud integration (softdepend — only if ScoreHud is installed)
+		if ($this->getServer()->getPluginManager()->getPlugin("ScoreHud") !== null) {
+			$this->getServer()->getPluginManager()->registerEvents(new ScoreHudListener($this), $this);
+		}
+
 		// Commands — fallback prefix = plugin name (C2a)
 		$map = $this->getServer()->getCommandMap();
 		$map->register($this->getName(), new MoneyCommand($this));

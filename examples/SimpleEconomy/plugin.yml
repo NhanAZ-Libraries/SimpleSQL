@@ -4,6 +4,7 @@ version: 1.0.0
 api: 5.0.0
 author: NhanAZ
 description: "A production-ready economy plugin powered by SimpleSQL — Hybrid SQL-YAML storage."
+softdepend: ScoreHud
 
 permissions:
   simpleeconomy.command.money:
