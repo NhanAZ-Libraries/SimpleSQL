@@ -11,78 +11,64 @@ use pocketmine\command\CommandSender;
 use pocketmine\plugin\PluginOwned;
 use pocketmine\plugin\PluginOwnedTrait;
 
-/**
- * /setmoney <player> <amount> — Set a player's balance (OP only).
- *
- * Supports name prefix matching for online players.
- * Works for offline players via temporary session.
- */
 class SetMoneyCommand extends Command implements PluginOwned {
 	use PluginOwnedTrait;
 
 	public function __construct(
 		private readonly Main $plugin,
 	) {
-		parent::__construct(
-			"setmoney",
-			"Set a player's balance (OP only).",
-			"/setmoney <player> <amount>",
-		);
+		parent::__construct("setmoney", "Set a player's balance (OP only).", "/setmoney <player> <amount>");
 		$this->setPermission("simpleeconomy.command.setmoney");
 		$this->owningPlugin = $plugin;
 	}
 
 	public function execute(CommandSender $sender, string $commandLabel, array $args): void {
+		$lang = $this->plugin->getLang();
+
 		if (count($args) < 2) {
-			$sender->sendMessage("§cUsage: /setmoney <player> <amount>");
+			$sender->sendMessage($lang->get("setmoney.usage"));
 			return;
 		}
 
-		// ── Validate amount ──
 		$amountRaw = $args[1];
 		if (!is_numeric($amountRaw)) {
-			$sender->sendMessage("§cAmount must be a number.");
+			$sender->sendMessage($lang->get("general.amount-not-number"));
 			return;
 		}
 
 		$amount = (int) floor((float) $amountRaw);
 		if ($amount < 0) {
-			$sender->sendMessage("§cAmount cannot be negative.");
+			$sender->sendMessage($lang->get("general.amount-not-negative"));
 			return;
 		}
 
-		// ── Resolve target ──
 		$input = $args[0];
 		$player = $this->plugin->resolvePlayer($input);
 		$targetName = $player !== null ? $player->getName() : $input;
 
 		$this->plugin->withPlayerSession(
 			$targetName,
-			onSession: function (Session $session, bool $temporary) use ($sender, $targetName, $amount): void {
+			onSession: function (Session $session, bool $temporary) use ($sender, $targetName, $amount, $lang): void {
 				$oldBalance = (int) $session->get("balance", 0);
 				$session->set("balance", $amount);
 				$this->plugin->updateBalanceCache(strtolower($targetName), $amount);
 
-				$session->save(function (bool $success) use ($sender, $targetName, $oldBalance, $amount, $temporary): void {
+				$session->save(function (bool $success) use ($sender, $targetName, $oldBalance, $amount, $temporary, $lang): void {
 					if ($success) {
-						$sender->sendMessage(
-							"§aSet §b{$targetName}§a's balance: §e"
-							. $this->plugin->formatMoney($oldBalance)
-							. " §a→ §e"
-							. $this->plugin->formatMoney($amount)
-						);
+						$sender->sendMessage($lang->get("setmoney.success", [
+							"player" => $targetName,
+							"old" => $this->plugin->formatMoney($oldBalance),
+							"new" => $this->plugin->formatMoney($amount),
+						]));
 
-						// Notify target if online and not the sender
 						$target = $this->plugin->getServer()->getPlayerExact($targetName);
 						if ($target !== null && strtolower($target->getName()) !== strtolower($sender->getName())) {
-							$target->sendMessage(
-								"§aYour balance has been set to §e"
-								. $this->plugin->formatMoney($amount)
-								. "§a by an administrator."
-							);
+							$target->sendMessage($lang->get("setmoney.notify", [
+								"amount" => $this->plugin->formatMoney($amount),
+							]));
 						}
 					} else {
-						$sender->sendMessage("§cFailed to save data for '$targetName'.");
+						$sender->sendMessage($lang->get("general.save-failed", ["player" => $targetName]));
 					}
 
 					if ($temporary) {

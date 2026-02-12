@@ -2,6 +2,9 @@
 #  SimpleEconomy — Configuration
 # ──────────────────────────────────────────────────────────
 
+# Language: "en" (English) or "vi" (Tiếng Việt)
+language: "en"
+
 # Starting balance for new players.
 default-balance: 1000
 

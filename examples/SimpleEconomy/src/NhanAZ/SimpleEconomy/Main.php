@@ -6,6 +6,7 @@ namespace NhanAZ\SimpleEconomy;
 
 use Closure;
 use NhanAZ\SimpleEconomy\command\AddMoneyCommand;
+use NhanAZ\SimpleEconomy\LangManager;
 use NhanAZ\SimpleEconomy\command\MoneyCommand;
 use NhanAZ\SimpleEconomy\command\PayCommand;
 use NhanAZ\SimpleEconomy\command\ReduceMoneyCommand;
@@ -37,6 +38,7 @@ class Main extends PluginBase implements Listener {
 	private static ?self $instance = null;
 
 	private SimpleSQL $simpleSQL;
+	private LangManager $lang;
 	private int $defaultBalance;
 	private string $currencySymbol;
 	private int $topmoneyPerPage;
@@ -70,6 +72,10 @@ class Main extends PluginBase implements Listener {
 		$this->defaultBalance = (int) $this->getConfig()->get("default-balance", 1000);
 		$this->currencySymbol = (string) $this->getConfig()->get("currency-symbol", "$");
 		$this->topmoneyPerPage = (int) $this->getConfig()->get("topmoney-per-page", 10);
+
+		// Language
+		$language = (string) $this->getConfig()->get("language", "en");
+		$this->lang = new LangManager($this, $language);
 
 		$this->simpleSQL = SimpleSQL::create(
 			plugin: $this,
@@ -119,7 +125,7 @@ class Main extends PluginBase implements Listener {
 			$this->updateBalanceCache($name, $balance);
 
 			if ($player->isOnline()) {
-				$player->sendMessage("§aWelcome! Your balance: §e" . $this->formatMoney($balance));
+				$player->sendMessage($this->lang->get("general.welcome", ["balance" => $this->formatMoney($balance)]));
 			}
 		});
 	}
@@ -263,14 +269,14 @@ class Main extends PluginBase implements Listener {
 			if ($session !== null) {
 				$onSession($session, false);
 			} else {
-				$onError("§cCould not access data for '$name'.");
+				$onError($this->lang->get("general.data-access-error", ["player" => $name]));
 			}
 			return;
 		}
 
 		// Currently loading
 		if ($this->simpleSQL->isLoading($lower)) {
-			$onError("§eData for '$name' is still loading. Please wait...");
+			$onError($this->lang->get("general.data-loading", ["player" => $name]));
 			return;
 		}
 
@@ -381,6 +387,10 @@ class Main extends PluginBase implements Listener {
 
 	public function getSimpleSQL(): SimpleSQL {
 		return $this->simpleSQL;
+	}
+
+	public function getLang(): LangManager {
+		return $this->lang;
 	}
 
 	public function getDefaultBalance(): int {
