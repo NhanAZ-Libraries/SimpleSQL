@@ -7,7 +7,7 @@ namespace NhanAZ\SimpleEconomy\event;
 /**
  * Called AFTER a transaction has been successfully completed.
  *
- * This event is read-only — the transaction has already happened.
+ * This event is read-only - the transaction has already happened.
  * Use this for logging, notifications, or syncing with external systems.
  *
  * Example usage from another plugin:

@@ -13,15 +13,15 @@ use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\player\Player;
 
 /**
- * ScoreHud integration — provides economy tags for scoreboards.
+ * ScoreHud integration - provides economy tags for scoreboards.
  *
  * This listener is ONLY registered when ScoreHud is installed (softdepend).
  * Do NOT instantiate this class if ScoreHud is not present.
  *
  * Available tags:
- *   {simpleeconomy.balance}  — formatted balance (e.g. "$1,000")
- *   {simpleeconomy.rank}     — leaderboard position (e.g. "3")
- *   {simpleeconomy.raw}      — raw balance number (e.g. "1000")
+ *   {simpleeconomy.balance}  - formatted balance (e.g. "$1,000")
+ *   {simpleeconomy.rank}     - leaderboard position (e.g. "3")
+ *   {simpleeconomy.raw}      - raw balance number (e.g. "1000")
  */
 class ScoreHudListener implements Listener {
 

@@ -18,7 +18,7 @@ use poggit\libasynql\SqlError;
 use RuntimeException;
 
 /**
- * SimpleSQL — Hybrid SQL-YAML data management for PocketMine-MP.
+ * SimpleSQL - Hybrid SQL-YAML data management for PocketMine-MP.
  *
  * Combines the performance and reliability of SQL (via libasynql) with the
  * offline-editability of YAML files. SQL is the authoritative source of truth
@@ -48,9 +48,9 @@ use RuntimeException;
  * These files are shipped with the SimpleSQL virion in `resources/simplesql/`.
  *
  * ## Performance Standards
- * - S1: No main thread I/O — all YAML operations are in AsyncTask.
- * - S2: No blocking SQL — uses libasynql prepared statements exclusively.
- * - S3: No memory leaks — mandatory closeSession() clears all data.
+ * - S1: No main thread I/O - all YAML operations are in AsyncTask.
+ * - S2: No blocking SQL - uses libasynql prepared statements exclusively.
+ * - S3: No memory leaks - mandatory closeSession() clears all data.
  */
 class SimpleSQL {
 
@@ -222,7 +222,7 @@ class SimpleSQL {
 					$this->logger?->warning(
 						"[SimpleSQL] YAML file for '$sessionId' was corrupt: "
 						. ($result["reason"] ?? "unknown reason")
-						. " — renamed to .broken, falling back to SQL."
+						. " - renamed to .broken, falling back to SQL."
 					);
 				}
 
@@ -290,7 +290,7 @@ class SimpleSQL {
 				"revision" => $newRevision,
 			],
 			function () use ($session, $id, $data, $newRevision, $onComplete): void {
-				// SQL persistence confirmed — now safe to increment revision
+				// SQL persistence confirmed - now safe to increment revision
 				$session->_setRevision($newRevision);
 				$session->_markClean();
 
@@ -341,7 +341,7 @@ class SimpleSQL {
 		$doClose = function () use ($id, $session, $onComplete): void {
 			$session->_markClosed();
 			unset($this->sessions[$id]);
-			// Note: don't cancel write scheduler — let pending YAML writes finish
+			// Note: don't cancel write scheduler - let pending YAML writes finish
 			if ($onComplete !== null) {
 				$onComplete();
 			}

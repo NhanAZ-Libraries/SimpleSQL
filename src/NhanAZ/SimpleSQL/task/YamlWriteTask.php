@@ -10,11 +10,11 @@ use pocketmine\scheduler\AsyncTask;
 /**
  * AsyncTask that atomically writes YAML data to disk.
  *
- * Runs entirely on a worker thread (S1 compliant — no main thread I/O).
+ * Runs entirely on a worker thread (S1 compliant - no main thread I/O).
  *
  * Write Strategy (Atomic + Windows-safe):
  *   1. Write to .tmp file with LOCK_EX.
- *   2. Attempt rename(.tmp → .yml) — atomic on most filesystems.
+ *   2. Attempt rename(.tmp → .yml) - atomic on most filesystems.
  *   3. If rename fails (Windows lock): copy(.tmp → .yml) + unlink(.tmp).
  *   4. If all fail: direct file_put_contents as last resort.
  */
@@ -78,7 +78,7 @@ class YamlWriteTask extends AsyncTask {
 
 		$written = @file_put_contents($tmpPath, $yamlContent, LOCK_EX);
 		if ($written === false) {
-			// Temp write failed — try direct write
+			// Temp write failed - try direct write
 			$this->directWrite($yamlContent);
 			return;
 		}
@@ -89,7 +89,7 @@ class YamlWriteTask extends AsyncTask {
 			return;
 		}
 
-		// ── Strategy 2: Windows fallback — copy + unlink ──
+		// ── Strategy 2: Windows fallback - copy + unlink ──
 		if (@copy($tmpPath, $this->filePath)) {
 			@unlink($tmpPath);
 			$this->success = true;

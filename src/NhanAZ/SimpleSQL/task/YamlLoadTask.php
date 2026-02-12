@@ -10,7 +10,7 @@ use pocketmine\scheduler\AsyncTask;
 /**
  * AsyncTask that loads and parses a YAML file from disk.
  *
- * Runs entirely on a worker thread (S1 compliant — no main thread I/O).
+ * Runs entirely on a worker thread (S1 compliant - no main thread I/O).
  *
  * Handles:
  *   - Missing files (returns missing=true).

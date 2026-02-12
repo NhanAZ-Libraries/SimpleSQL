@@ -8,7 +8,7 @@ Built for **server owners who want a working economy in minutes** and **develope
 
 ## Why another economy plugin?
 
-I know [BedrockEconomy](https://github.com/cooldogepm/BedrockEconomy) exists, and it's a great plugin — recommended on Poggit, actively maintained. So why SimpleEconomy?
+I know [BedrockEconomy](https://github.com/cooldogepm/BedrockEconomy) exists, and it's a great plugin - recommended on Poggit, actively maintained. So why SimpleEconomy?
 
 **Short answer:** Different philosophy, different strengths.
 
@@ -23,7 +23,7 @@ I know [BedrockEconomy](https://github.com/cooldogepm/BedrockEconomy) exists, an
 | **Transaction events** | Cancellable events for third-party control | Custom event system |
 | **Target audience** | Small-to-medium servers, non-dev admins | Advanced setups, dev-oriented |
 
-**Why not PR into BedrockEconomy?** BedrockEconomy is architecturally pure-SQL. SimpleEconomy's hybrid SQL-YAML approach (via SimpleSQL) is a fundamentally different storage philosophy — this isn't a feature addition, it's a different way of thinking about player data. Both approaches have merit, but they can't coexist in one codebase without compromise.
+**Why not PR into BedrockEconomy?** BedrockEconomy is architecturally pure-SQL. SimpleEconomy's hybrid SQL-YAML approach (via SimpleSQL) is a fundamentally different storage philosophy - this isn't a feature addition, it's a different way of thinking about player data. Both approaches have merit, but they can't coexist in one codebase without compromise.
 
 **TL;DR:** BedrockEconomy is powerful and flexible. SimpleEconomy is simple and instant. Choose what fits your server.
 
@@ -31,15 +31,15 @@ I know [BedrockEconomy](https://github.com/cooldogepm/BedrockEconomy) exists, an
 
 ## Features
 
-- **6 commands** — `/money`, `/pay`, `/setmoney`, `/addmoney`, `/reducemoney`, `/topmoney`
-- **Name prefix matching** — type `/money nh` and it finds `NhanAZ`
-- **Offline player support** — check and modify balances of players who aren't online
-- **Leaderboard** — paginated `/topmoney` with async cache rebuild
-- **14 languages** — English, Vietnamese, Korean, Russian, Spanish, Ukrainian, Chinese, Indonesian, Turkish, French, Portuguese, German, Japanese, Italian
-- **ScoreHud integration** — built-in scoreboard tags, no extra plugin needed
-- **Transaction events** — other plugins can listen to, or even cancel, economy transactions
-- **Currency formatting** — `$1,000,000` (default) or `$1.5M` (compact)
-- **SQLite & MySQL** — switch with one line in config
+- **6 commands** - `/money`, `/pay`, `/setmoney`, `/addmoney`, `/reducemoney`, `/topmoney`
+- **Name prefix matching** - type `/money nh` and it finds `NhanAZ`
+- **Offline player support** - check and modify balances of players who aren't online
+- **Leaderboard** - paginated `/topmoney` with async cache rebuild
+- **14 languages** - English, Vietnamese, Korean, Russian, Spanish, Ukrainian, Chinese, Indonesian, Turkish, French, Portuguese, German, Japanese, Italian
+- **ScoreHud integration** - built-in scoreboard tags, no extra plugin needed
+- **Transaction events** - other plugins can listen to, or even cancel, economy transactions
+- **Currency formatting** - `$1,000,000` (default) or `$1.5M` (compact)
+- **SQLite & MySQL** - switch with one line in config
 
 ---
 
@@ -119,7 +119,7 @@ database:
 | `jpn` | 日本語 |
 | `ita` | Italiano |
 
-All language files are saved to `plugin_data/SimpleEconomy/lang/` — you can edit them freely.
+All language files are saved to `plugin_data/SimpleEconomy/lang/` - you can edit them freely.
 
 ---
 
@@ -139,7 +139,7 @@ No extra plugins or configuration needed. Just add the tags to your ScoreHud con
 
 ## For Developers
 
-### Quick Start — Using the API
+### Quick Start - Using the API
 
 ```php
 use NhanAZ\SimpleEconomy\Main as SimpleEconomy;
@@ -148,12 +148,12 @@ use NhanAZ\SimpleEconomy\Main as SimpleEconomy;
 $eco = SimpleEconomy::getInstance();
 
 // Check balance (online players)
-$balance = $eco->getMoney("Steve");  // ?int — null if offline
+$balance = $eco->getMoney("Steve");  // ?int - null if offline
 
 // Modify balance (online players)
-$eco->setMoney("Steve", 5000);    // bool — false if offline or cancelled
+$eco->setMoney("Steve", 5000);    // bool - false if offline or cancelled
 $eco->addMoney("Steve", 500);     // bool
-$eco->reduceMoney("Steve", 200);  // bool — false if insufficient funds
+$eco->reduceMoney("Steve", 200);  // bool - false if insufficient funds
 
 // Format money using the server's configured style
 $display = $eco->formatMoney(1500000);  // "$1,500,000" or "$1.5M"
@@ -161,7 +161,7 @@ $display = $eco->formatMoney(1500000);  // "$1,500,000" or "$1.5M"
 
 That's the entire sync API. **4 methods.**
 
-### Async API — Offline Players
+### Async API - Offline Players
 
 ```php
 // Works for BOTH online and offline players
@@ -178,7 +178,7 @@ $eco->getMoneyAsync("Steve", function(?int $balance): void {
 
 SimpleEconomy fires events that your plugin can listen to:
 
-**`TransactionSubmitEvent`** — fired *before* a transaction executes. **Cancellable.**
+**`TransactionSubmitEvent`** - fired *before* a transaction executes. **Cancellable.**
 
 ```php
 use NhanAZ\SimpleEconomy\event\TransactionSubmitEvent;
@@ -192,7 +192,7 @@ public function onTransaction(TransactionSubmitEvent $event): void {
 }
 ```
 
-**`TransactionSuccessEvent`** — fired *after* a transaction completes. Read-only.
+**`TransactionSuccessEvent`** - fired *after* a transaction completes. Read-only.
 
 ```php
 use NhanAZ\SimpleEconomy\event\TransactionSuccessEvent;
@@ -239,7 +239,7 @@ $top = $eco->getTopBalances(limit: 10, offset: 0);
 // Returns: [["name" => "steve", "balance" => 50000], ...]
 
 // Get a player's rank
-$rank = $eco->getPlayerRank("Steve");  // ?int — null if not in cache
+$rank = $eco->getPlayerRank("Steve");  // ?int - null if not in cache
 
 // Total cached entries
 $count = $eco->getBalanceCacheCount();
@@ -254,7 +254,7 @@ I plan to submit PRs to major multi-economy libraries once SimpleEconomy is appr
 | [libPiggyEconomy](https://github.com/DaPigGuy/libPiggyEconomy) | Provider | `"simpleeconomy"` | Planned |
 | [MoneyConnector](https://github.com/PJZ9n/MoneyConnector) | Connector | `"simpleeconomy"` | Planned |
 | [Economizer](https://github.com/SpaceGameDev568/Economizer) | Transistor | `"SimpleEconomy"` | Planned |
-| [libEco](https://github.com/David-pm-pl/libEco) | Auto-detect | — | Planned |
+| [libEco](https://github.com/David-pm-pl/libEco) | Auto-detect | - | Planned |
 | [Capital](https://github.com/SOF3/Capital) | Migration source | `"simpleeconomy"` | Planned |
 
 Once these PRs are merged, plugins using these libraries (shop plugins, auction plugins, etc.) will automatically work with SimpleEconomy without any code changes on their end.
@@ -300,12 +300,12 @@ SimpleEconomy/
 
 ## License
 
-[MIT License](LICENSE) — do whatever you want with it.
+[MIT License](LICENSE) - do whatever you want with it.
 
 ---
 
 ## Credits
 
-- **[SimpleSQL](https://github.com/NhanAZ-Libraries/SimpleSQL)** — the hybrid SQL-YAML engine that powers this plugin
-- **[libasynql](https://github.com/poggit/libasynql)** — async SQL library for PocketMine-MP
-- **[ScoreHud](https://github.com/Flavionsky/ScoreHud)** — scoreboard addon (optional integration)
+- **[SimpleSQL](https://github.com/NhanAZ-Libraries/SimpleSQL)** - the hybrid SQL-YAML engine that powers this plugin
+- **[libasynql](https://github.com/poggit/libasynql)** - async SQL library for PocketMine-MP
+- **[ScoreHud](https://github.com/Flavionsky/ScoreHud)** - scoreboard addon (optional integration)

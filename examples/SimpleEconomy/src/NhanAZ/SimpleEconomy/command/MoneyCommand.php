@@ -36,7 +36,7 @@ class MoneyCommand extends Command implements PluginOwned {
 				return;
 			}
 
-			// Offline — temp session
+			// Offline - temp session
 			$this->plugin->withPlayerSession(
 				$input,
 				onSession: function (Session $session, bool $temporary) use ($sender, $input, $lang): void {

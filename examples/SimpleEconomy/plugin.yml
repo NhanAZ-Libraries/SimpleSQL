@@ -1,9 +1,9 @@
 name: SimpleEconomy
 main: NhanAZ\SimpleEconomy\Main
-version: 1.0.1
+version: 1.0.0
 api: 5.0.0
 author: NhanAZ
-description: "A production-ready economy plugin powered by SimpleSQL — Hybrid SQL-YAML storage."
+description: "A production-ready economy plugin powered by SimpleSQL - Hybrid SQL-YAML storage."
 softdepend: ScoreHud
 
 permissions:

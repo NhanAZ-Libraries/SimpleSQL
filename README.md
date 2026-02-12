@@ -18,7 +18,7 @@ SimpleSQL combines the **performance and reliability of SQL** with the **human-f
   - [Reading & Writing Data](#reading--writing-data)
   - [Saving & Closing](#saving--closing)
   - [Graceful Shutdown](#graceful-shutdown)
-- [Server Owner's Guide — Editing YAML Files](#server-owners-guide--editing-yaml-files)
+- [Server Owner's Guide - Editing YAML Files](#server-owners-guide--editing-yaml-files)
 - [Performance Tips](#performance-tips)
 - [API Reference](#api-reference)
 - [License](#license)
@@ -74,10 +74,10 @@ SimpleSQL combines the **performance and reliability of SQL** with the **human-f
                           └───────┘   └────────┘
 ```
 
-1. **Open** — Both SQL and YAML are loaded concurrently. Conflict resolution picks the source with the higher `revision` number.
-2. **Use** — Your plugin reads/writes a lightweight in-memory `Session` object. Zero I/O on the main thread.
-3. **Save** — Data is written to SQL first (source of truth). On success, a YAML mirror write is queued asynchronously.
-4. **Close** — Dirty sessions are auto-saved. Memory is freed (no leaks).
+1. **Open** - Both SQL and YAML are loaded concurrently. Conflict resolution picks the source with the higher `revision` number.
+2. **Use** - Your plugin reads/writes a lightweight in-memory `Session` object. Zero I/O on the main thread.
+3. **Save** - Data is written to SQL first (source of truth). On success, a YAML mirror write is queued asynchronously.
+4. **Close** - Dirty sessions are auto-saved. Memory is freed (no leaks).
 
 ---
 
@@ -224,7 +224,7 @@ Values can be any JSON-serializable type: `int`, `float`, `string`, `bool`, `arr
 ### Saving & Closing
 
 ```php
-// Explicit save (async) — SQL first, then YAML mirror
+// Explicit save (async) - SQL first, then YAML mirror
 $session->save(function(bool $success): void {
     if ($success) {
         echo "Saved!";
@@ -258,9 +258,9 @@ YAML writes are intentionally **skipped** during shutdown (SQL is the source of 
 
 ---
 
-## Server Owner's Guide — Editing YAML Files
+## Server Owner's Guide - Editing YAML Files
 
-One of SimpleSQL's best features is that all player data is mirrored to human-readable `.yml` files. This means you can view and edit data using any text editor — **but only while the server is stopped.**
+One of SimpleSQL's best features is that all player data is mirrored to human-readable `.yml` files. This means you can view and edit data using any text editor - **but only while the server is stopped.**
 
 ### Where Are the Files?
 
@@ -307,7 +307,7 @@ When SimpleSQL loads a session, it compares the `revision` in the YAML file agai
 4. **Increment the `revision` number** by at least 1 (e.g., `5` → `6`).
 5. **Save the file** and start the server.
 
-**Example — Giving a player 1000 coins:**
+**Example - Giving a player 1000 coins:**
 
 Before:
 ```yaml
@@ -330,7 +330,7 @@ data:
 | Editing while server is running | Your changes are overwritten immediately | Always stop the server first |
 | Forgetting to increment `revision` | SQL has equal or higher revision; your edits are ignored | Always bump the revision by +1 |
 | Breaking YAML syntax (bad indentation) | File is marked corrupt and renamed to `.broken`; SQL data is used instead | Use a YAML validator or be careful with indentation |
-| Deleting the YAML file | No effect — it will be recreated from SQL on next session load | This is safe, but pointless |
+| Deleting the YAML file | No effect - it will be recreated from SQL on next session load | This is safe, but pointless |
 
 ### Recovering from Corruption
 
@@ -339,7 +339,7 @@ If a YAML file has invalid syntax, SimpleSQL will:
 2. Fall back to the SQL database data (which is always reliable).
 3. Create a fresh YAML mirror on the next save.
 
-**You never lose data** — SQL is always the authoritative source.
+**You never lose data** - SQL is always the authoritative source.
 
 ---
 
@@ -349,10 +349,10 @@ If a YAML file has invalid syntax, SimpleSQL will:
 
 | Scenario | Recommendation |
 |---|---|
-| **Small server** (< 50 players) | **SQLite** — Zero setup, single file, no external service needed. |
+| **Small server** (< 50 players) | **SQLite** - Zero setup, single file, no external service needed. |
 | **Medium server** (50–200 players) | **SQLite** is usually fine. Switch to MySQL if you notice slow saves. |
-| **Large server / Network** (200+ players) | **MySQL** — Better concurrency, shared across multiple servers. |
-| **BungeeCord / Proxy network** | **MySQL** — Required for cross-server data sharing. |
+| **Large server / Network** (200+ players) | **MySQL** - Better concurrency, shared across multiple servers. |
+| **BungeeCord / Proxy network** | **MySQL** - Required for cross-server data sharing. |
 
 ### Write Throttling
 

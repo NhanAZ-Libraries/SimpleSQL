@@ -23,7 +23,7 @@ use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
 
 /**
- * SimpleEconomy — A production-ready economy plugin powered by SimpleSQL.
+ * SimpleEconomy - A production-ready economy plugin powered by SimpleSQL.
  *
  * Features:
  *   - Simple API for other plugins (getMoney, setMoney, addMoney, reduceMoney)
@@ -109,12 +109,12 @@ class Main extends PluginBase implements Listener {
 		// Events
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 
-		// ScoreHud integration (softdepend — only if ScoreHud is installed)
+		// ScoreHud integration (softdepend - only if ScoreHud is installed)
 		if ($this->getServer()->getPluginManager()->getPlugin("ScoreHud") !== null) {
 			$this->getServer()->getPluginManager()->registerEvents(new ScoreHudListener($this), $this);
 		}
 
-		// Commands — fallback prefix = plugin name (C2a)
+		// Commands - fallback prefix = plugin name (C2a)
 		$map = $this->getServer()->getCommandMap();
 		$map->register($this->getName(), new MoneyCommand($this));
 		$map->register($this->getName(), new PayCommand($this));
@@ -156,7 +156,7 @@ class Main extends PluginBase implements Listener {
 	}
 
 	// ──────────────────────────────────────────────
-	//  Public API — Synchronous (online players only)
+	//  Public API - Synchronous (online players only)
 	// ──────────────────────────────────────────────
 
 	/**
@@ -264,31 +264,31 @@ class Main extends PluginBase implements Listener {
 	}
 
 	// ──────────────────────────────────────────────
-	//  Public API — Asynchronous (online + offline)
+	//  Public API - Asynchronous (online + offline)
 	// ──────────────────────────────────────────────
 
 	/**
 	 * Get a player's balance asynchronously. Works for both online and offline players.
 	 *
-	 * @param Closure(?int): void $callback — receives the balance, or null if the player has never played.
+	 * @param Closure(?int): void $callback - receives the balance, or null if the player has never played.
 	 */
 	public function getMoneyAsync(string $name, Closure $callback): void {
 		$lower = strtolower($name);
 
-		// Online — instant
+		// Online - instant
 		if ($this->simpleSQL->hasSession($lower)) {
 			$session = $this->simpleSQL->getSession($lower);
 			$callback($session !== null ? (int) $session->get("balance", 0) : null);
 			return;
 		}
 
-		// Currently loading — return from cache if available
+		// Currently loading - return from cache if available
 		if ($this->simpleSQL->isLoading($lower)) {
 			$callback($this->balanceCache[$lower] ?? null);
 			return;
 		}
 
-		// Offline — open temporary session
+		// Offline - open temporary session
 		$this->simpleSQL->openSession($lower, function (Session $session) use ($lower, $callback): void {
 			$balance = $session->has("balance") ? (int) $session->get("balance", 0) : null;
 			$callback($balance);
@@ -338,7 +338,7 @@ class Main extends PluginBase implements Listener {
 			return;
 		}
 
-		// Offline — open temporary session
+		// Offline - open temporary session
 		$this->simpleSQL->openSession($lower, function (Session $session) use ($onSession): void {
 			$onSession($session, true);
 		});
@@ -360,7 +360,7 @@ class Main extends PluginBase implements Listener {
 	}
 
 	// ──────────────────────────────────────────────
-	//  Leaderboard cache (bounded — S3 compliant)
+	//  Leaderboard cache (bounded - S3 compliant)
 	// ──────────────────────────────────────────────
 
 	/**

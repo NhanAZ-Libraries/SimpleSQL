@@ -163,7 +163,7 @@ class Session {
 	}
 
 	// ──────────────────────────────────────────────────────────
-	//  Internal methods — called by SimpleSQL manager only.
+	//  Internal methods - called by SimpleSQL manager only.
 	// ──────────────────────────────────────────────────────────
 
 	/**

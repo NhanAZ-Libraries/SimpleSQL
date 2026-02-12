@@ -85,7 +85,7 @@ class PayCommand extends Command implements PluginOwned {
 			return;
 		}
 
-		// Fire pre-transaction event (sender side — reduce)
+		// Fire pre-transaction event (sender side - reduce)
 		$submitEvent = new TransactionSubmitEvent(
 			$sender->getName(), $senderBalance, $senderBalance - $amount, TransactionEvent::TYPE_PAY
 		);

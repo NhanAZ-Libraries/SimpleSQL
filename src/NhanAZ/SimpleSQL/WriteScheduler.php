@@ -120,7 +120,7 @@ class WriteScheduler {
 	 */
 	private function onWriteComplete(string $id): void {
 		if (!isset($this->states[$id])) {
-			// Session was cancelled while the write was in flight — ignore.
+			// Session was cancelled while the write was in flight - ignore.
 			unset($this->pendingCoalesce[$id]);
 			return;
 		}
