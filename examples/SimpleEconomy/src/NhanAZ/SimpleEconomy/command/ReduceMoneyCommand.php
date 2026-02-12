@@ -12,29 +12,29 @@ use pocketmine\plugin\PluginOwned;
 use pocketmine\plugin\PluginOwnedTrait;
 
 /**
- * /setmoney <player> <amount> — Set a player's balance (OP only).
+ * /reducemoney <player> <amount> — Reduce money from a player's balance (OP only).
  *
- * Supports name prefix matching for online players.
- * Works for offline players via temporary session.
+ * Balance cannot go below zero.
+ * Supports name prefix matching and offline players.
  */
-class SetMoneyCommand extends Command implements PluginOwned {
+class ReduceMoneyCommand extends Command implements PluginOwned {
 	use PluginOwnedTrait;
 
 	public function __construct(
 		private readonly Main $plugin,
 	) {
 		parent::__construct(
-			"setmoney",
-			"Set a player's balance (OP only).",
-			"/setmoney <player> <amount>",
+			"reducemoney",
+			"Reduce money from a player's balance (OP only).",
+			"/reducemoney <player> <amount>",
 		);
-		$this->setPermission("simpleeconomy.command.setmoney");
+		$this->setPermission("simpleeconomy.command.reducemoney");
 		$this->owningPlugin = $plugin;
 	}
 
 	public function execute(CommandSender $sender, string $commandLabel, array $args): void {
 		if (count($args) < 2) {
-			$sender->sendMessage("§cUsage: /setmoney <player> <amount>");
+			$sender->sendMessage("§cUsage: /reducemoney <player> <amount>");
 			return;
 		}
 
@@ -46,8 +46,8 @@ class SetMoneyCommand extends Command implements PluginOwned {
 		}
 
 		$amount = (int) floor((float) $amountRaw);
-		if ($amount < 0) {
-			$sender->sendMessage("§cAmount cannot be negative.");
+		if ($amount <= 0) {
+			$sender->sendMessage("§cAmount must be greater than zero.");
 			return;
 		}
 
@@ -60,25 +60,36 @@ class SetMoneyCommand extends Command implements PluginOwned {
 			$targetName,
 			onSession: function (Session $session, bool $temporary) use ($sender, $targetName, $amount): void {
 				$oldBalance = (int) $session->get("balance", 0);
-				$session->set("balance", $amount);
-				$this->plugin->updateBalanceCache(strtolower($targetName), $amount);
 
-				$session->save(function (bool $success) use ($sender, $targetName, $oldBalance, $amount, $temporary): void {
+				if ($oldBalance < $amount) {
+					$sender->sendMessage(
+						"§c{$targetName} only has §e" . $this->plugin->formatMoney($oldBalance)
+						. "§c. Cannot reduce §e" . $this->plugin->formatMoney($amount) . "§c."
+					);
+					if ($temporary) {
+						$this->plugin->closeTempSession($targetName);
+					}
+					return;
+				}
+
+				$newBalance = $oldBalance - $amount;
+				$session->set("balance", $newBalance);
+				$this->plugin->updateBalanceCache(strtolower($targetName), $newBalance);
+
+				$session->save(function (bool $success) use ($sender, $targetName, $amount, $newBalance, $temporary): void {
 					if ($success) {
 						$sender->sendMessage(
-							"§aSet §b{$targetName}§a's balance: §e"
-							. $this->plugin->formatMoney($oldBalance)
-							. " §a→ §e"
-							. $this->plugin->formatMoney($amount)
+							"§aRemoved §e" . $this->plugin->formatMoney($amount)
+							. "§a from §b{$targetName}§a. New balance: §e"
+							. $this->plugin->formatMoney($newBalance)
 						);
 
-						// Notify target if online and not the sender
 						$target = $this->plugin->getServer()->getPlayerExact($targetName);
 						if ($target !== null && strtolower($target->getName()) !== strtolower($sender->getName())) {
 							$target->sendMessage(
-								"§aYour balance has been set to §e"
-								. $this->plugin->formatMoney($amount)
-								. "§a by an administrator."
+								"§c§e" . $this->plugin->formatMoney($amount)
+								. "§c was removed from your balance by an administrator. New balance: §e"
+								. $this->plugin->formatMoney($newBalance)
 							);
 						}
 					} else {

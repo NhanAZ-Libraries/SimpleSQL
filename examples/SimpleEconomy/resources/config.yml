@@ -8,6 +8,9 @@ default-balance: 1000
 # Currency symbol displayed in messages.
 currency-symbol: "$"
 
+# Number of entries per page in /topmoney.
+topmoney-per-page: 10
+
 # Database configuration (passed directly to SimpleSQL / libasynql).
 database:
   # Database type: "sqlite" or "mysql"

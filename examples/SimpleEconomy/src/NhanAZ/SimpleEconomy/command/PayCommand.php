@@ -14,9 +14,8 @@ use pocketmine\plugin\PluginOwnedTrait;
 /**
  * /pay <player> <amount> — Transfer money to another online player.
  *
- * Both sender and receiver must have loaded sessions. The transfer is
- * validated (sufficient funds, positive amount, not self-pay) before
- * any data is modified.
+ * Both sender and receiver must be online with loaded sessions.
+ * Supports name prefix matching for the receiver.
  */
 class PayCommand extends Command implements PluginOwned {
 	use PluginOwnedTrait;
@@ -34,22 +33,27 @@ class PayCommand extends Command implements PluginOwned {
 	}
 
 	public function execute(CommandSender $sender, string $commandLabel, array $args): void {
-		// Only players can use /pay
 		if (!$sender instanceof Player) {
 			$sender->sendMessage("§cThis command can only be used in-game.");
 			return;
 		}
 
-		// Validate arguments
 		if (count($args) < 2) {
 			$sender->sendMessage("§cUsage: /pay <player> <amount>");
 			return;
 		}
 
-		$targetName = $args[0];
-		$amountRaw = $args[1];
+		// ── Resolve receiver via prefix matching ──
+		$input = $args[0];
+		$receiver = $this->plugin->resolvePlayer($input);
+		if ($receiver === null) {
+			$sender->sendMessage("§cPlayer '$input' is not online.");
+			return;
+		}
+		$targetName = $receiver->getName();
 
 		// ── Validate amount ──
+		$amountRaw = $args[1];
 		if (!is_numeric($amountRaw)) {
 			$sender->sendMessage("§cAmount must be a number.");
 			return;
@@ -67,64 +71,35 @@ class PayCommand extends Command implements PluginOwned {
 			return;
 		}
 
-		// ── Check sender's session ──
-		if (!$this->plugin->isSessionReady($sender->getName())) {
+		// ── Check sender session ──
+		$senderBalance = $this->plugin->getMoney($sender->getName());
+		if ($senderBalance === null) {
 			$sender->sendMessage("§eYour data is still loading. Please wait a moment.");
 			return;
 		}
 
-		$senderSession = $this->plugin->getPlayerSession($sender->getName());
-		if ($senderSession === null) {
-			$sender->sendMessage("§cCould not access your data.");
-			return;
-		}
-
-		// ── Check receiver's session ──
-		if (!$this->plugin->isSessionReady($targetName)) {
-			if ($this->plugin->getSimpleSQL()->isLoading(strtolower($targetName))) {
-				$sender->sendMessage("§e{$targetName}'s data is still loading. Please wait...");
-			} else {
-				$sender->sendMessage("§c{$targetName} is not online.");
-			}
-			return;
-		}
-
-		$receiverSession = $this->plugin->getPlayerSession($targetName);
-		if ($receiverSession === null) {
-			$sender->sendMessage("§cCould not access {$targetName}'s data.");
+		// ── Check receiver session ──
+		$receiverBalance = $this->plugin->getMoney($targetName);
+		if ($receiverBalance === null) {
+			$sender->sendMessage("§e{$targetName}'s data is still loading. Please wait...");
 			return;
 		}
 
 		// ── Check sufficient funds ──
-		$senderBalance = (int) $senderSession->get("balance", 0);
 		if ($senderBalance < $amount) {
-			$sender->sendMessage(
-				"§cInsufficient funds. Your balance: §e"
-				. $this->plugin->formatMoney($senderBalance)
-			);
+			$sender->sendMessage("§cInsufficient funds. Your balance: §e" . $this->plugin->formatMoney($senderBalance));
 			return;
 		}
 
 		// ── Execute transfer ──
-		$receiverBalance = (int) $receiverSession->get("balance", 0);
-
-		$senderSession->set("balance", $senderBalance - $amount);
-		$receiverSession->set("balance", $receiverBalance + $amount);
-
-		// Persist both sessions asynchronously.
-		// SQL is written first (source of truth), then YAML mirror is queued.
-		$senderSession->save();
-		$receiverSession->save();
+		$this->plugin->setMoney($sender->getName(), $senderBalance - $amount);
+		$this->plugin->setMoney($targetName, $receiverBalance + $amount);
 
 		$formatted = $this->plugin->formatMoney($amount);
 		$sender->sendMessage("§aYou sent §e{$formatted}§a to §b{$targetName}§a.");
 
-		// Notify the receiver if they are online
-		$receiverPlayer = $this->plugin->getServer()->getPlayerExact($targetName);
-		if ($receiverPlayer !== null) {
-			$receiverPlayer->sendMessage(
-				"§aYou received §e{$formatted}§a from §b{$sender->getName()}§a."
-			);
+		if ($receiver->isOnline()) {
+			$receiver->sendMessage("§aYou received §e{$formatted}§a from §b{$sender->getName()}§a.");
 		}
 	}
 }
