@@ -19,7 +19,7 @@ I know [BedrockEconomy](https://github.com/cooldogepm/BedrockEconomy) exists, an
 | **Setup** | Drop-in, works instantly | Requires understanding async patterns |
 | **Offline player data** | Built-in (temporary sessions) | Requires manual SQL queries |
 | **ScoreHud integration** | Built-in | Separate plugin required |
-| **Multi-language** | 14 languages built-in | English only |
+| **Multi-language** | 14 languages built-in | 4 languages |
 | **Transaction events** | Cancellable events for third-party control | Custom event system |
 | **Target audience** | Small-to-medium servers, non-dev admins | Advanced setups, dev-oriented |
 
