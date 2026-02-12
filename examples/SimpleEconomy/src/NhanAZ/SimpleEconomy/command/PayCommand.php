@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NhanAZ\SimpleEconomy\command;
 
+use NhanAZ\SimpleEconomy\event\TransactionEvent;
+use NhanAZ\SimpleEconomy\event\TransactionSubmitEvent;
+use NhanAZ\SimpleEconomy\event\TransactionSuccessEvent;
 use NhanAZ\SimpleEconomy\Main;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
@@ -82,9 +85,27 @@ class PayCommand extends Command implements PluginOwned {
 			return;
 		}
 
-		// Transfer
+		// Fire pre-transaction event (sender side — reduce)
+		$submitEvent = new TransactionSubmitEvent(
+			$sender->getName(), $senderBalance, $senderBalance - $amount, TransactionEvent::TYPE_PAY
+		);
+		$submitEvent->call();
+		if ($submitEvent->isCancelled()) {
+			$sender->sendMessage($lang->get("pay.cancelled"));
+			return;
+		}
+
+		// Execute transfer
 		$this->plugin->setMoney($sender->getName(), $senderBalance - $amount);
 		$this->plugin->setMoney($targetName, $receiverBalance + $amount);
+
+		// Fire post-transaction events
+		(new TransactionSuccessEvent(
+			$sender->getName(), $senderBalance, $senderBalance - $amount, TransactionEvent::TYPE_PAY
+		))->call();
+		(new TransactionSuccessEvent(
+			$targetName, $receiverBalance, $receiverBalance + $amount, TransactionEvent::TYPE_PAY
+		))->call();
 
 		$formatted = $this->plugin->formatMoney($amount);
 		$sender->sendMessage($lang->get("pay.sent", ["amount" => $formatted, "player" => $targetName]));

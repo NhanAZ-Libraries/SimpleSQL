@@ -44,10 +44,21 @@ class MoneyCommand extends Command implements PluginOwned {
 						$sender->sendMessage($lang->get("general.no-economy-data", ["player" => $input]));
 					} else {
 						$balance = (int) $session->get("balance", 0);
-						$sender->sendMessage($lang->get("money.other", [
-							"player" => $input,
-							"balance" => $this->plugin->formatMoney($balance),
-						]));
+						$rank = $this->plugin->getPlayerRank($input);
+						$formatted = $this->plugin->formatMoney($balance);
+
+						if ($rank !== null) {
+							$sender->sendMessage($lang->get("money.other", [
+								"player" => $input,
+								"balance" => $formatted,
+								"rank" => (string) $rank,
+							]));
+						} else {
+							$sender->sendMessage($lang->get("money.other-unranked", [
+								"player" => $input,
+								"balance" => $formatted,
+							]));
+						}
 					}
 					if ($temporary) {
 						$this->plugin->closeTempSession($input);
@@ -74,10 +85,20 @@ class MoneyCommand extends Command implements PluginOwned {
 		}
 
 		$formatted = $this->plugin->formatMoney($balance);
-		if ($sender instanceof Player && strtolower($targetName) === strtolower($sender->getName())) {
-			$sender->sendMessage($lang->get("money.self", ["balance" => $formatted]));
+		$rank = $this->plugin->getPlayerRank($targetName);
+		$isSelf = $sender instanceof Player && strtolower($targetName) === strtolower($sender->getName());
+
+		if ($isSelf) {
+			$key = $rank !== null ? "money.self" : "money.self-unranked";
 		} else {
-			$sender->sendMessage($lang->get("money.other", ["player" => $targetName, "balance" => $formatted]));
+			$key = $rank !== null ? "money.other" : "money.other-unranked";
 		}
+
+		$params = ["player" => $targetName, "balance" => $formatted];
+		if ($rank !== null) {
+			$params["rank"] = (string) $rank;
+		}
+
+		$sender->sendMessage($lang->get($key, $params));
 	}
 }

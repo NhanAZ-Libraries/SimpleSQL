@@ -2,17 +2,28 @@
 #  SimpleEconomy — Configuration
 # ──────────────────────────────────────────────────────────
 
+# Do not change this value. Used for automatic config migration detection.
+config-version: 1
+
 # Language: "eng" (English) or "vie" (Tiếng Việt)
 language: "eng"
 
 # Starting balance for new players.
 default-balance: 1000
 
-# Currency symbol displayed in messages.
-currency-symbol: "$"
+# Currency settings.
+currency:
+  # Symbol displayed before amounts.
+  symbol: "$"
+  # Formatter mode: "default" ($1,000,000) or "compact" ($1.5K, $2.3M, $1B)
+  formatter: "default"
 
 # Number of entries per page in /topmoney.
 topmoney-per-page: 10
+
+# Maximum number of entries in the leaderboard cache.
+# Higher = more complete leaderboard, but uses more memory.
+leaderboard-size: 100
 
 # Database configuration (passed directly to SimpleSQL / libasynql).
 database:

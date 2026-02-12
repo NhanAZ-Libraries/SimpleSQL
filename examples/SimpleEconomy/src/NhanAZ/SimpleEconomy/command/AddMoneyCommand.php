@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NhanAZ\SimpleEconomy\command;
 
+use NhanAZ\SimpleEconomy\event\TransactionEvent;
+use NhanAZ\SimpleEconomy\event\TransactionSubmitEvent;
+use NhanAZ\SimpleEconomy\event\TransactionSuccessEvent;
 use NhanAZ\SimpleEconomy\Main;
 use NhanAZ\SimpleSQL\Session;
 use pocketmine\command\Command;
@@ -51,11 +54,26 @@ class AddMoneyCommand extends Command implements PluginOwned {
 			onSession: function (Session $session, bool $temporary) use ($sender, $targetName, $amount, $lang): void {
 				$oldBalance = (int) $session->get("balance", 0);
 				$newBalance = $oldBalance + $amount;
+
+				// Fire pre-transaction event
+				$submitEvent = new TransactionSubmitEvent($targetName, $oldBalance, $newBalance, TransactionEvent::TYPE_ADD);
+				$submitEvent->call();
+				if ($submitEvent->isCancelled()) {
+					$sender->sendMessage($lang->get("general.transaction-cancelled"));
+					if ($temporary) {
+						$this->plugin->closeTempSession($targetName);
+					}
+					return;
+				}
+
 				$session->set("balance", $newBalance);
 				$this->plugin->updateBalanceCache(strtolower($targetName), $newBalance);
 
-				$session->save(function (bool $success) use ($sender, $targetName, $amount, $newBalance, $temporary, $lang): void {
+				$session->save(function (bool $success) use ($sender, $targetName, $oldBalance, $amount, $newBalance, $temporary, $lang): void {
 					if ($success) {
+						// Fire post-transaction event
+						(new TransactionSuccessEvent($targetName, $oldBalance, $newBalance, TransactionEvent::TYPE_ADD))->call();
+
 						$sender->sendMessage($lang->get("addmoney.success", [
 							"amount" => $this->plugin->formatMoney($amount),
 							"player" => $targetName,

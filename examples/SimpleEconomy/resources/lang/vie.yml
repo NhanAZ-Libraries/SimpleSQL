@@ -12,11 +12,14 @@ general:
   amount-not-number: "§cSố tiền phải là một con số."
   amount-positive: "§cSố tiền phải lớn hơn 0."
   amount-not-negative: "§cSố tiền không được âm."
+  transaction-cancelled: "§cGiao dịch đã bị hủy."
 
 money:
   usage: "§cCách dùng: /money <tên người chơi>"
-  self: "§aSố dư của bạn: §e{balance}"
-  other: "§aSố dư của {player}: §e{balance}"
+  self: "§aSố dư của bạn: §e{balance} §7(#{rank})"
+  self-unranked: "§aSố dư của bạn: §e{balance}"
+  other: "§aSố dư của {player}: §e{balance} §7(#{rank})"
+  other-unranked: "§aSố dư của {player}: §e{balance}"
   error: "§cKhông thể lấy dữ liệu của '{player}'."
 
 pay:
@@ -25,6 +28,7 @@ pay:
   loading-self: "§eDữ liệu của bạn đang tải. Vui lòng chờ..."
   loading-target: "§eDữ liệu của {player} đang tải. Vui lòng chờ..."
   insufficient: "§cKhông đủ tiền. Số dư: §e{balance}"
+  cancelled: "§cGiao dịch đã bị hủy."
   sent: "§aBạn đã gửi §e{amount}§a cho §b{player}§a."
   received: "§aBạn nhận được §e{amount}§a từ §b{player}§a."
 
@@ -46,6 +50,6 @@ reducemoney:
 
 topmoney:
   empty: "§eChưa có dữ liệu kinh tế nào."
-  header: "§6=== BXH Tiền §7(Trang {page}/{max}) §6==="
+  header: "§6══ BXH Tiền §7(Trang {page}/{max}) §6══"
   entry: "§e#{rank} {highlight}{player} §7- §a{balance}"
-  footer: "§6=========================================="
+  footer: "§6══════════════════════"
