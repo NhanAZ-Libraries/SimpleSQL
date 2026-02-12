@@ -5,7 +5,10 @@
 # Do not change this value. Used for automatic config migration detection.
 config-version: 1
 
-# Language: "eng" (English) or "vie" (Tiếng Việt)
+# Language: "eng" (English), "vie" (Tiếng Việt), "kor" (한국어), "rus" (Русский),
+#           "spa" (Español), "ukr" (Українська), "zho" (简体中文), "ind" (Bahasa Indonesia),
+#           "tur" (Türkçe), "fra" (Français), "por" (Português), "deu" (Deutsch),
+#           "jpn" (日本語), "ita" (Italiano)
 language: "eng"
 
 # Starting balance for new players.

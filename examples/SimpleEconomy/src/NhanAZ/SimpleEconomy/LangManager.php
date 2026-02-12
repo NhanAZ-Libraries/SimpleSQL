@@ -23,7 +23,7 @@ class LangManager {
 		$this->language = $language;
 
 		// Save all language files to data folder
-		foreach (["eng", "vie"] as $lang) {
+		foreach (["eng", "vie", "kor", "rus", "spa", "ukr", "zho", "ind", "tur", "fra", "por", "deu", "jpn", "ita"] as $lang) {
 			$plugin->saveResource("lang/$lang.yml", false);
 		}
 
