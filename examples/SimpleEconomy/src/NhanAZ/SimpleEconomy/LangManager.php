@@ -23,16 +23,16 @@ class LangManager {
 		$this->language = $language;
 
 		// Save all language files to data folder
-		foreach (["en", "vi"] as $lang) {
+		foreach (["eng", "vie"] as $lang) {
 			$plugin->saveResource("lang/$lang.yml", false);
 		}
 
 		// Load selected language
 		$langFile = $plugin->getDataFolder() . "lang/$language.yml";
 		if (!file_exists($langFile)) {
-			$plugin->getLogger()->warning("Language file '$language.yml' not found, falling back to 'en'.");
-			$langFile = $plugin->getDataFolder() . "lang/en.yml";
-			$this->language = "en";
+			$plugin->getLogger()->warning("Language file '$language.yml' not found, falling back to 'eng'.");
+			$langFile = $plugin->getDataFolder() . "lang/eng.yml";
+			$this->language = "eng";
 		}
 
 		$data = @yaml_parse_file($langFile);

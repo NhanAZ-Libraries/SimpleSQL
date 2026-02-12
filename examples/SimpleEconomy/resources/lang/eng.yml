@@ -3,7 +3,6 @@
 # ──────────────────────────────────────────────
 
 general:
-  welcome: "§aWelcome! Your balance: §e{balance}"
   data-loading: "§eData for '{player}' is still loading. Please wait..."
   data-access-error: "§cCould not access data for '{player}'."
   save-failed: "§cFailed to save data for '{player}'."
@@ -47,6 +46,6 @@ reducemoney:
 
 topmoney:
   empty: "§eNo economy data available yet."
-  header: "§6══ Top Money §7(Page {page}/{max}) §6══"
+  header: "§6=== Top Money §7(Page {page}/{max}) §6==="
   entry: "§e#{rank} {highlight}{player} §7- §a{balance}"
-  footer: "§6══════════════════════"
+  footer: "§6=========================================="

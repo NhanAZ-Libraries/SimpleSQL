@@ -115,7 +115,7 @@ class Main extends PluginBase implements Listener {
 		$player = $event->getPlayer();
 		$name = strtolower($player->getName());
 
-		$this->simpleSQL->openSession($name, function (Session $session) use ($player, $name): void {
+		$this->simpleSQL->openSession($name, function (Session $session) use ($name): void {
 			if (!$session->has("balance")) {
 				$session->set("balance", $this->defaultBalance);
 				$session->save();
@@ -123,10 +123,6 @@ class Main extends PluginBase implements Listener {
 
 			$balance = (int) $session->get("balance", 0);
 			$this->updateBalanceCache($name, $balance);
-
-			if ($player->isOnline()) {
-				$player->sendMessage($this->lang->get("general.welcome", ["balance" => $this->formatMoney($balance)]));
-			}
 		});
 	}
 

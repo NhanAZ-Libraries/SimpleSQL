@@ -3,7 +3,6 @@
 # ──────────────────────────────────────────────
 
 general:
-  welcome: "§aChào mừng! Số dư của bạn: §e{balance}"
   data-loading: "§eDữ liệu của '{player}' đang tải. Vui lòng chờ..."
   data-access-error: "§cKhông thể truy cập dữ liệu của '{player}'."
   save-failed: "§cLưu dữ liệu thất bại cho '{player}'."
@@ -47,6 +46,6 @@ reducemoney:
 
 topmoney:
   empty: "§eChưa có dữ liệu kinh tế nào."
-  header: "§6══ BXH Tiền §7(Trang {page}/{max}) §6══"
+  header: "§6=== BXH Tiền §7(Trang {page}/{max}) §6==="
   entry: "§e#{rank} {highlight}{player} §7- §a{balance}"
-  footer: "§6══════════════════════"
+  footer: "§6=========================================="
