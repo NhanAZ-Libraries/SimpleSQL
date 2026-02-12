@@ -415,6 +415,12 @@ The recommended pattern for player data:
 
 ---
 
+## Example Plugin
+
+**[SimpleEconomy](https://github.com/NhanAZ-Plugins/SimpleEconomy)** — A production-ready economy plugin built with SimpleSQL. Great reference for learning how to use SimpleSQL in a real plugin.
+
+---
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.

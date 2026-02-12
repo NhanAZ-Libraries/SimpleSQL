@@ -1,2 +1,5 @@
 # PR repositories (local only, not part of SimpleSQL)
 examples/SimpleEconomy/PR/
+
+# Standalone SimpleEconomy repo (separate git repo)
+SimpleEconomy/
