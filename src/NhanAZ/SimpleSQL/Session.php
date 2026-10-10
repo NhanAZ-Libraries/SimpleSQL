@@ -22,6 +22,7 @@ class Session {
 
 	/** Whether this session has been closed (invalidated). */
 	private bool $closed = false;
+	private bool $pairSaveLocked = false;
 
 	/** Whether data has been modified since the last successful save. */
 	private bool $dirty = false;
@@ -66,7 +67,7 @@ class Session {
 	 * @param mixed  $value The value to store (must be YAML-safe: scalar, array, or null).
 	 */
 	public function set(string $key, mixed $value): void {
-		$this->assertOpen();
+		$this->assertMutable();
 		if (!isset($this->data[$key]) || $this->data[$key] !== $value) {
 			$this->data[$key] = $value;
 			$this->dirty = true;
@@ -78,7 +79,7 @@ class Session {
 	 * Remove a key from the data map.
 	 */
 	public function remove(string $key): void {
-		$this->assertOpen();
+		$this->assertMutable();
 		if (isset($this->data[$key]) || array_key_exists($key, $this->data)) {
 			unset($this->data[$key]);
 			$this->dirty = true;
@@ -110,7 +111,7 @@ class Session {
 	 * @param array<string, mixed> $data
 	 */
 	public function setAll(array $data): void {
-		$this->assertOpen();
+		$this->assertMutable();
 		$this->data = $data;
 		$this->dirty = true;
 		$this->mutationVersion++;
@@ -211,12 +212,44 @@ class Session {
 		return $this->data;
 	}
 
+	/** @internal Reserve the session while a two-session SQL write is pending. */
+	public function _lockPairSave(): void {
+		$this->assertOpen();
+		if ($this->pairSaveLocked) {
+			throw new RuntimeException("Session '{$this->id}' is already locked for a paired save");
+		}
+		$this->pairSaveLocked = true;
+	}
+
+	/** @internal Release the paired-save reservation after SQL confirms or rejects it. */
+	public function _unlockPairSave(): void {
+		$this->pairSaveLocked = false;
+	}
+
+	/**
+	 * @internal Apply a committed two-session snapshot without a second SQL write.
+	 * @param array<array-key, mixed> $data
+	 */
+	public function _applyPairSave(array $data, int $revision): void {
+		$this->data = $data;
+		$this->revision = $revision;
+		$this->dirty = false;
+		++$this->mutationVersion;
+	}
+
 	/**
 	 * Throws if the session is closed.
 	 */
 	private function assertOpen(): void {
 		if ($this->closed) {
 			throw new RuntimeException("Session '{$this->id}' has been closed");
+		}
+	}
+
+	private function assertMutable(): void {
+		$this->assertOpen();
+		if ($this->pairSaveLocked) {
+			throw new RuntimeException("Session '{$this->id}' cannot be changed during a paired save");
 		}
 	}
 }

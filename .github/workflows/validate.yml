@@ -13,12 +13,24 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.4.5@sha256:679e7e924f38a3cbb62a3d7df32924b83f7321a602d3f9f967c01b3df18495d6
+        env:
+          MYSQL_ROOT_PASSWORD: simplesql-ci-only
+          MYSQL_DATABASE: simplesql_ci
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -psimplesql-ci-only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - name: Check out SimpleSQL
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Check out libasynql for static analysis
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: poggit/libasynql
           ref: 270f8ae93e3271206eadd42ca81862ab9a54f322
@@ -26,7 +38,7 @@ jobs:
           persist-credentials: false
 
       - name: Check out Axolotl-PM PHP setup helper
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: axolotl-pm/setup-php-action
           ref: b8c3f9add4f2ad4a5e2624a1112aba899ee8db0e
@@ -51,9 +63,14 @@ jobs:
         run: composer phpstan
 
       - name: Run SQL load and save regression tests
+        env:
+          SIMPLESQL_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=simplesql_ci
+          SIMPLESQL_MYSQL_USER: root
+          SIMPLESQL_MYSQL_PASSWORD: simplesql-ci-only
         run: |
           php tests/sql-load-safety.php
           php tests/save-lifecycle.php
+          php tests/pair-sql-atomicity.php
 
       - name: Lint PHP source and tests
         run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l

@@ -68,6 +68,7 @@ class SimpleSQL {
 	private array $saveRequested = [];
 	/** @var array<string, list<Closure(bool): void>> */
 	private array $saveWaiters = [];
+	private bool $atomicPairAvailable = false;
 
 	/** Write throttle and coalescing scheduler. */
 	private WriteScheduler $writeScheduler;
@@ -159,6 +160,16 @@ class SimpleSQL {
 		// Initialize SQL table
 		$this->db->executeGeneric("simplesql.init", [], null, function (SqlError $error): void {
 			$this->logger?->error("[SimpleSQL] Table initialization failed: " . $error->getMessage());
+		});
+		$this->db->waitAll();
+		$this->db->executeSelect("simplesql.pair_engine", [], function (array $rows): void {
+			$engine = isset($rows[0]) && is_array($rows[0]) ? ($rows[0]["engine"] ?? null) : null;
+			$this->atomicPairAvailable = is_string($engine) && in_array(strtolower($engine), ["sqlite", "innodb"], true);
+			if (!$this->atomicPairAvailable) {
+				$this->logger?->warning("[SimpleSQL] Paired saves require SQLite or an InnoDB simplesql_data table.");
+			}
+		}, function (SqlError $error): void {
+			$this->logger?->error("[SimpleSQL] Could not verify paired-save storage engine: " . $error->getMessage());
 		});
 		$this->db->waitAll();
 	}
@@ -397,6 +408,93 @@ class SimpleSQL {
 		} catch (Throwable $error) {
 			$this->logger?->error("[SimpleSQL] SQL save could not start for '$id': " . $error->getMessage());
 			$finish(false);
+		}
+	}
+
+	/**
+	 * Persist two active sessions in one SQL statement. Their visible data changes
+	 * only after SQL succeeds, and both YAML mirrors are queued afterward.
+	 *
+	 * @param array<array-key, mixed> $firstData
+	 * @param array<array-key, mixed> $secondData
+	 * @param callable(bool): void $onComplete
+	 */
+	public function saveSessionPair(Session $first, array $firstData, Session $second, array $secondData, callable $onComplete): void {
+		$firstId = $first->getId();
+		$secondId = $second->getId();
+		if (!$this->atomicPairAvailable || $firstId === $secondId ||
+			($this->sessions[$firstId] ?? null) !== $first ||
+			($this->sessions[$secondId] ?? null) !== $second ||
+			isset($this->savesInFlight[$firstId]) || isset($this->savesInFlight[$secondId])) {
+			$onComplete(false);
+			return;
+		}
+
+		$firstJson = json_encode($firstData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		$secondJson = json_encode($secondData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		if ($firstJson === false || $secondJson === false) {
+			$onComplete(false);
+			return;
+		}
+
+		$firstRevision = $first->getRevision() + 1;
+		$secondRevision = $second->getRevision() + 1;
+		$first->_lockPairSave();
+		$second->_lockPairSave();
+		$this->savesInFlight[$firstId] = true;
+		$this->savesInFlight[$secondId] = true;
+		$finished = false;
+		$finish = function (bool $success) use ($first, $firstData, $firstId, $firstRevision, $second, $secondData, $secondId, $secondRevision, $onComplete, &$finished): void {
+			if ($finished) return;
+			$finished = true;
+			if ($success) {
+				$first->_applyPairSave($firstData, $firstRevision);
+				$second->_applyPairSave($secondData, $secondRevision);
+				$this->writeScheduler->scheduleWrite($firstId, $firstData, $firstRevision);
+				$this->writeScheduler->scheduleWrite($secondId, $secondData, $secondRevision);
+			}
+			$first->_unlockPairSave();
+			$second->_unlockPairSave();
+			unset($this->savesInFlight[$firstId], $this->savesInFlight[$secondId]);
+			try {
+				$onComplete($success);
+			} finally {
+				$this->resumeQueuedPairSave($first, $success);
+				$this->resumeQueuedPairSave($second, $success);
+			}
+		};
+
+		try {
+			$this->db->executeGeneric("simplesql.save_pair", [
+				"first_id" => $firstId,
+				"first_data" => $firstJson,
+				"first_revision" => $firstRevision,
+				"second_id" => $secondId,
+				"second_data" => $secondJson,
+				"second_revision" => $secondRevision,
+			], static function () use ($finish): void { $finish(true); }, static function (SqlError $error) use ($finish): void { $finish(false); });
+		} catch (Throwable $error) {
+			$this->logger?->error("[SimpleSQL] Paired save could not start: " . $error->getMessage());
+			$finish(false);
+		}
+	}
+
+	private function resumeQueuedPairSave(Session $session, bool $success): void {
+		$id = $session->getId();
+		$requested = isset($this->saveRequested[$id]);
+		$waiters = $this->saveWaiters[$id] ?? [];
+		unset($this->saveRequested[$id], $this->saveWaiters[$id]);
+		if (isset($this->savesInFlight[$id])) {
+			if ($requested) $this->saveRequested[$id] = true;
+			foreach ($waiters as $waiter) $this->saveWaiters[$id][] = $waiter;
+			return;
+		}
+		if ($success && $requested && $session->isDirty()) {
+			$this->saveSession($session, static function (bool $nextSuccess) use ($waiters): void {
+				foreach ($waiters as $waiter) $waiter($nextSuccess);
+			});
+		} else {
+			foreach ($waiters as $waiter) $waiter($success);
 		}
 	}
 

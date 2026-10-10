@@ -24,7 +24,7 @@ namespace {
 	require dirname(__DIR__) . "/src/NhanAZ/SimpleSQL/WriteScheduler.php";
 
 	final class DeferredSql implements DataConnector {
-		/** @var list<array{args: array, success: callable, error: callable}> */
+		/** @var list<array{name: string, args: array, success: callable, error: callable}> */
 		public array $queries = [];
 		public bool $failOnWait = false;
 		private int $handled = 0;
@@ -33,7 +33,7 @@ namespace {
 			if ($onSuccess === null || $onError === null) {
 				throw new \RuntimeException("Save did not provide SQL result handlers.");
 			}
-			$this->queries[] = ["args" => $args, "success" => $onSuccess, "error" => $onError];
+			$this->queries[] = ["name" => $queryName, "args" => $args, "success" => $onSuccess, "error" => $onError];
 		}
 
 		public function waitAll(): void {
@@ -122,5 +122,56 @@ namespace {
 	rmdir(dirname($files[0]));
 	rmdir($recoveryRoot);
 
-	echo "PASS: serialized saves, failed close and shutdown recovery\n";
+	/** @var SimpleSQL $pairManager */
+	$pairManager = $reflection->newInstanceWithoutConstructor();
+	$pairDb = new DeferredSql();
+	$reflection->getProperty("db")->setValue($pairManager, $pairDb);
+	$reflection->getProperty("logger")->setValue($pairManager, null);
+	$reflection->getProperty("writeScheduler")->setValue($pairManager, new WriteScheduler($pairManager));
+	$reflection->getProperty("atomicPairAvailable")->setValue($pairManager, true);
+	$sender = new Session("sender", ["balance" => 10], 2, $pairManager);
+	$recipient = new Session("recipient", ["balance" => 2], 5, $pairManager);
+	$reflection->getProperty("sessions")->setValue($pairManager, ["sender" => $sender, "recipient" => $recipient]);
+	$pairResults = [];
+	$pairManager->saveSessionPair($sender, ["balance" => 7], $recipient, ["balance" => 5], function (bool $success) use (&$pairResults): void { $pairResults[] = $success; });
+	if (count($pairDb->queries) !== 1 || $pairDb->queries[0]["name"] !== "simplesql.save_pair" ||
+		$pairDb->queries[0]["args"]["first_data"] !== '{"balance":7}' ||
+		$pairDb->queries[0]["args"]["second_data"] !== '{"balance":5}' ||
+		$sender->get("balance") !== 10 || $recipient->get("balance") !== 2) {
+		throw new \RuntimeException("Paired save changed visible balances before SQL confirmed both rows.");
+	}
+	try {
+		$sender->set("balance", 99);
+		throw new \RuntimeException("Paired save allowed a concurrent mutation.");
+	} catch (\RuntimeException $error) {
+		if (!str_contains($error->getMessage(), "cannot be changed")) throw $error;
+	}
+	$pairManager->saveSessionPair($sender, ["balance" => 6], $recipient, ["balance" => 6], function (bool $success) use (&$pairResults): void { $pairResults[] = $success; });
+	if ($pairResults !== [false] || count($pairDb->queries) !== 1) {
+		throw new \RuntimeException("Overlapping paired save was not rejected.");
+	}
+	($pairDb->queries[0]["success"])();
+	if ($pairResults !== [false, true] || $sender->get("balance") !== 7 || $recipient->get("balance") !== 5 ||
+		$sender->getRevision() !== 3 || $recipient->getRevision() !== 6 || $sender->isDirty() || $recipient->isDirty()) {
+		throw new \RuntimeException("Successful paired save did not commit both sessions together.");
+	}
+	$queuedMirrors = (new \ReflectionProperty(WriteScheduler::class, "queued"))->getValue($reflection->getProperty("writeScheduler")->getValue($pairManager));
+	if (count($queuedMirrors) !== 2 || $queuedMirrors["sender"]["revision"] !== 3 || $queuedMirrors["recipient"]["revision"] !== 6) {
+		throw new \RuntimeException("Successful paired save did not queue both YAML mirrors.");
+	}
+	$pairManager->saveSessionPair($sender, ["balance" => 4], $recipient, ["balance" => 8], function (bool $success) use (&$pairResults): void { $pairResults[] = $success; });
+	($pairDb->queries[1]["error"])(new SqlError("second write rejected"));
+	if ($pairResults !== [false, true, false] || $sender->get("balance") !== 7 || $recipient->get("balance") !== 5 ||
+		$sender->getRevision() !== 3 || $recipient->getRevision() !== 6) {
+		throw new \RuntimeException("Failed paired save exposed or committed a partial transfer.");
+	}
+	$sender->set("balance", 8);
+	$recipient->set("balance", 4);
+	$reflection->getProperty("atomicPairAvailable")->setValue($pairManager, false);
+	$pairManager->saveSessionPair($sender, ["balance" => 7], $recipient, ["balance" => 5], function (bool $success) use (&$pairResults): void { $pairResults[] = $success; });
+	if ($pairResults !== [false, true, false, false] || count($pairDb->queries) !== 2) {
+		throw new \RuntimeException("Unsupported database engine was allowed to run a paired save.");
+	}
+
+	echo "PASS: serialized saves, paired saves, failed close and shutdown recovery\n";
 }

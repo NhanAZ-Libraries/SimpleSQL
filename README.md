@@ -22,7 +22,7 @@ The `virion.yml` minimum is API `5.0.0`. The [validation workflow](.github/workf
 
 Add [SimpleSQL source](https://github.com/NhanAZ-Libraries/SimpleSQL/releases) and libasynql to the virion inputs of your plugin build. Include both SQL resource files from [`resources/simplesql`](resources/simplesql) at the same paths in your plugin. SimpleSQL is a library inside the resulting plugin PHAR, not a standalone server plugin.
 
-Use [DevTools](https://github.com/NhanAZ/DevTools) to build and validate the plugin PHAR. Pin the virion sources and DevTools revision in your build workflow so that the artifact can be reproduced. The [SimpleEconomy build workflow](https://github.com/NhanAZ-Plugins/SimpleEconomy/blob/main/.github/workflows/devtools.yml) shows one consumer configuration, but its pinned revisions should be reviewed before reuse.
+Use [DevTools](https://github.com/NhanAZ/DevTools) to build and validate the plugin PHAR. Pin the virion sources and DevTools revision in your build workflow so that the artifact can be reproduced. The [SimpleEconomy build workflow](https://github.com/NhanAZ-Plugins/SimpleEconomy/blob/main/.github/workflows/build.yml) shows one consumer configuration, but its pinned revisions should be reviewed before reuse.
 
 The plugin must contain these resources.
 
@@ -76,6 +76,12 @@ $simpleSQL->openSession(
 
 `Session::get()`, `set()`, `remove()`, `has()`, `getAll()` and `setAll()` operate on in-memory data. `save()` accepts an optional callback receiving a success boolean. `closeSession()` saves dirty data before releasing it. Its completion callback runs after a successful close. If SQL cannot save the data, the session stays open for a retry.
 
+### Saving two sessions together
+
+`SimpleSQL::saveSessionPair()` accepts two distinct, active sessions and their complete next data arrays. It submits both SQL rows in one statement, then applies both snapshots in memory and queues their YAML mirrors only after SQL confirms success. Its callback receives `false` if the engine is unsuitable, a session is unavailable or busy, the data cannot be encoded, or SQL rejects the write. Both original session values remain visible on failure.
+
+SQLite and MySQL tables using InnoDB are supported. The manager checks the actual MySQL table engine at startup; a pre-existing table using another engine cannot use paired saves. Mutating either session while the paired write is pending raises an error so a concurrent change cannot be silently lost. Callers must validate their own domain rules, including amounts and account identity, before requesting the write. A successful SQL callback precedes the asynchronous YAML mirror writes.
+
 ## Offline YAML edits and recovery
 
 Stop the server before editing a YAML mirror. Each file has `revision` and `data` fields. Increment `revision` when changing the data so that the offline edit wins over the SQL row at the next load.
@@ -100,9 +106,10 @@ composer install --no-interaction --prefer-dist --no-scripts --no-plugins
 composer phpstan
 php tests/sql-load-safety.php
 php tests/save-lifecycle.php
+php tests/pair-sql-atomicity.php
 ```
 
-The regression scripts test load failure barriers, ordered saves and shutdown recovery. They do not replace a runtime smoke test of a plugin PHAR containing both virions.
+The regression scripts test load failure barriers, ordered saves, paired-write rollback on SQLite and shutdown recovery. CI also runs the paired-write test against a pinned MySQL InnoDB service. They do not replace a runtime smoke test of a plugin PHAR containing both virions.
 
 ## Support and license
 
