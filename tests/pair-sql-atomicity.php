@@ -20,8 +20,10 @@ foreach (["sqlite", "mysql"] as $driver) {
 	$parser = new GenericStatementFileParser($path, $handle);
 	$parser->parse();
 	$queries = $parser->getResults();
-	if (!isset($queries["simplesql.pair_engine"], $queries["simplesql.save_pair"]) ||
-		count($queries["simplesql.save_pair"]->getVariables()) !== 6) {
+	if (!isset($queries["simplesql.pair_engine"], $queries["simplesql.save"], $queries["simplesql.save_pair"]) ||
+		count($queries["simplesql.save_pair"]->getVariables()) !== 6 ||
+		count($queries["simplesql.save"]->getQuery()) !== 2 ||
+		count($queries["simplesql.save_pair"]->getQuery()) !== 2) {
 		throw new RuntimeException("Pinned libasynql did not recognize {$driver} paired-save queries");
 	}
 }
@@ -35,6 +37,11 @@ function statement(string $driver, string $name): string {
 	$end = strpos($source, "-- #}", $start);
 	if ($end === false) throw new RuntimeException("Unclosed {$name} query in {$driver} SQL resource");
 	$lines = explode("\n", substr($source, $start, $end - $start));
+	if ($name === "save" || $name === "save_pair") {
+		$separator = array_search("-- #&", array_map("trim", $lines), true);
+		if ($separator === false) throw new RuntimeException("Missing checked-save delimiter in {$driver} SQL resource");
+		$lines = array_slice($lines, 0, $separator);
+	}
 	$query = implode("\n", array_filter($lines, static fn(string $line): bool => !str_starts_with(ltrim($line), "--")));
 	if (trim($query) === "") throw new RuntimeException("Empty {$name} query in {$driver} SQL resource");
 	return $query;

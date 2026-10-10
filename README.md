@@ -8,7 +8,7 @@ SimpleSQL is a virion that stores plugin session data in SQL and maintains a YAM
 
 SimpleSQL uses [libasynql](https://github.com/poggit/libasynql) for asynchronous SQLite or MySQL queries. It loads the SQL row and YAML file before opening a session. The copy with the higher revision wins. If an offline YAML edit wins, SimpleSQL waits for the SQL synchronization to succeed before exposing the session. A failed SQL read leaves the session unopened and invokes the optional error callback.
 
-Session changes are held in memory until saved. Saves write to SQL first and then queue a YAML mirror write. Writes for one session run in order, and a change made while a save is running remains dirty until it is saved separately. A failed save keeps the session open. During shutdown, a failed SQL save causes SimpleSQL to write a separate recovery snapshot if the filesystem is available.
+Session changes are held in memory until saved. Saves write to SQL and read back the expected row before changing the session or queuing a YAML mirror write. Writes for one session run in order, and a change made while a save is running remains dirty until it is saved separately. A failed save keeps the session open. During shutdown, a failed SQL save causes SimpleSQL to write a separate recovery snapshot if the filesystem is available.
 
 ## Requirements and compatibility
 
@@ -78,7 +78,7 @@ $simpleSQL->openSession(
 
 ### Saving two sessions together
 
-`SimpleSQL::saveSessionPair()` accepts two distinct, active sessions and their complete next data arrays. It submits both SQL rows in one statement, then applies both snapshots in memory and queues their YAML mirrors only after SQL confirms success. Its callback receives `false` if the engine is unsuitable, a session is unavailable or busy, the data cannot be encoded, or SQL rejects the write. Both original session values remain visible on failure.
+`SimpleSQL::saveSessionPair()` accepts two distinct, active sessions and their complete next data arrays. It submits both SQL rows in one statement, reads back both expected rows, then applies both snapshots in memory and queues their YAML mirrors. Its callback receives `false` if the engine is unsuitable, a session is unavailable or busy, the data cannot be encoded, or SQL does not confirm both rows. Both original session values remain visible on failure.
 
 SQLite and MySQL tables using InnoDB are supported. The manager checks the actual MySQL table engine at startup; a pre-existing table using another engine cannot use paired saves. Mutating either session while the paired write is pending raises an error so a concurrent change cannot be silently lost. Callers must validate their own domain rules, including amounts and account identity, before requesting the write. A successful SQL callback precedes the asynchronous YAML mirror writes.
 

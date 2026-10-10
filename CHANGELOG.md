@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 - 2026-10-11
+
+- Confirm single and paired SQL saves by reading the written rows on the same database worker before changing sessions or queuing YAML mirrors.
+- Treat a connector callback that reports success without the expected rows as a failed save. This protects consumers from a libasynql MySQL prepared statement error that can otherwise be reported as success.
+- Keep the paired write as one SQL statement and verify both rows after it completes.
+
+The SQL resource files have changed. Consumers must bundle the files from this release with the matching SimpleSQL source. The readback detects missing writes; consumers should also use a libasynql revision or verified patch that reports prepared statement errors correctly. Rebuild and test the assembled plugin before release.
+
 ## 1.1.0 - 2026-10-11
 
 - Add `saveSessionPair()` to persist two active sessions in one SQLite or MySQL statement before applying either in-memory snapshot.

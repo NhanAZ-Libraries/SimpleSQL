@@ -5,10 +5,19 @@ declare(strict_types=1);
 namespace poggit\libasynql {
 	interface DataConnector {
 		public function executeGeneric(string $queryName, array $args = [], ?callable $onSuccess = null, ?callable $onError = null): void;
+		public function executeMulti(string $queryName, array $args, int $mode, ?callable $handler = null, ?callable $onError = null): void;
 		public function waitAll(): void;
 		public function close(): void;
 	}
 	class SqlError extends \RuntimeException {}
+	class SqlThread { public const MODE_SELECT = 3; }
+}
+
+namespace poggit\libasynql\result {
+	class SqlSelectResult {
+		public function __construct(private array $rows) {}
+		public function getRows(): array { return $this->rows; }
+	}
 }
 
 namespace {
@@ -17,6 +26,7 @@ namespace {
 	use NhanAZ\SimpleSQL\WriteScheduler;
 	use poggit\libasynql\DataConnector;
 	use poggit\libasynql\SqlError;
+	use poggit\libasynql\result\SqlSelectResult;
 
 	require dirname(__DIR__) . "/src/NhanAZ/SimpleSQL/SimpleSQL.php";
 	require dirname(__DIR__) . "/src/NhanAZ/SimpleSQL/Session.php";
@@ -27,6 +37,9 @@ namespace {
 		/** @var list<array{name: string, args: array, success: callable, error: callable}> */
 		public array $queries = [];
 		public bool $failOnWait = false;
+		public bool $silentlyDropWrites = false;
+		/** @var array<string, array{id: string, data: string, revision: int}> */
+		private array $stored = [];
 		private int $handled = 0;
 
 		public function executeGeneric(string $queryName, array $args = [], ?callable $onSuccess = null, ?callable $onError = null): void {
@@ -34,6 +47,22 @@ namespace {
 				throw new \RuntimeException("Save did not provide SQL result handlers.");
 			}
 			$this->queries[] = ["name" => $queryName, "args" => $args, "success" => $onSuccess, "error" => $onError];
+		}
+
+		public function executeMulti(string $queryName, array $args, int $mode, ?callable $handler = null, ?callable $onError = null): void {
+			if ($handler === null || $onError === null) throw new \RuntimeException("Checked save did not provide result handlers.");
+			$this->queries[] = ["name" => $queryName, "args" => $args, "success" => function () use ($queryName, $args, $handler): void {
+				$writes = $queryName === "simplesql.save_pair" ? [
+					[$args["first_id"], $args["first_data"], $args["first_revision"]],
+					[$args["second_id"], $args["second_data"], $args["second_revision"]],
+				] : [[$args["id"], $args["data"], $args["revision"]]];
+				if (!$this->silentlyDropWrites) {
+					foreach ($writes as [$id, $data, $revision]) $this->stored[$id] = ["id" => $id, "data" => $data, "revision" => $revision];
+				}
+				$rows = [];
+				foreach ($writes as [$id]) if (isset($this->stored[$id])) $rows[] = $this->stored[$id];
+				$handler([new \stdClass(), new SqlSelectResult($rows)]);
+			}, "error" => $onError];
 		}
 
 		public function waitAll(): void {
@@ -76,22 +105,30 @@ namespace {
 	if ($session->isDirty() || $session->getRevision() !== 2 || $results !== [true, true]) {
 		throw new \RuntimeException("Serialized saves did not finish cleanly.");
 	}
+	$db->silentlyDropWrites = true;
+	$session->set("coins", 3);
+	$session->save(function (bool $success) use (&$results): void { $results[] = $success; });
+	($db->queries[2]["success"])();
+	if ($results !== [true, true, false] || !$session->isDirty() || $session->getRevision() !== 2) {
+		throw new \RuntimeException("Readback accepted a connector that reported an unwritten save as success.");
+	}
+	$db->silentlyDropWrites = false;
 	$session->set("coins", 3);
 	$session->save();
 	$session->set("coins", 4);
-	($db->queries[2]["success"])();
+	($db->queries[3]["success"])();
 	if (!$session->isDirty() || $session->getRevision() !== 3 || $session->get("coins") !== 4) {
 		throw new \RuntimeException("An edit made during a save was marked clean without a second save request.");
 	}
 
 	$closed = false;
 	$manager->closeSession("player", function () use (&$closed): void { $closed = true; });
-	($db->queries[3]["error"])(new SqlError("write failed"));
+	($db->queries[4]["error"])(new SqlError("write failed"));
 	if ($closed || $session->isClosed() || !$session->isDirty() || !$manager->hasSession("player")) {
 		throw new \RuntimeException("Failed SQL save discarded the active session.");
 	}
 	$manager->closeSession("player", function () use (&$closed): void { $closed = true; });
-	($db->queries[4]["success"])();
+	($db->queries[5]["success"])();
 	if (!$closed || !$session->isClosed() || $manager->hasSession("player")) {
 		throw new \RuntimeException("Successful retry did not close the session.");
 	}
@@ -165,11 +202,17 @@ namespace {
 		$sender->getRevision() !== 3 || $recipient->getRevision() !== 6) {
 		throw new \RuntimeException("Failed paired save exposed or committed a partial transfer.");
 	}
+	$pairDb->silentlyDropWrites = true;
+	$pairManager->saveSessionPair($sender, ["balance" => 4], $recipient, ["balance" => 8], function (bool $success) use (&$pairResults): void { $pairResults[] = $success; });
+	($pairDb->queries[2]["success"])();
+	if ($pairResults !== [false, true, false, false] || $sender->get("balance") !== 7 || $recipient->get("balance") !== 5) {
+		throw new \RuntimeException("Readback accepted a connector that reported an unwritten pair as success.");
+	}
 	$sender->set("balance", 8);
 	$recipient->set("balance", 4);
 	$reflection->getProperty("atomicPairAvailable")->setValue($pairManager, false);
 	$pairManager->saveSessionPair($sender, ["balance" => 7], $recipient, ["balance" => 5], function (bool $success) use (&$pairResults): void { $pairResults[] = $success; });
-	if ($pairResults !== [false, true, false, false] || count($pairDb->queries) !== 2) {
+	if ($pairResults !== [false, true, false, false, false] || count($pairDb->queries) !== 3) {
 		throw new \RuntimeException("Unsupported database engine was allowed to run a paired save.");
 	}
 

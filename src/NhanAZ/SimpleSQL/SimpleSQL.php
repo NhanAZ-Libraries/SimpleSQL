@@ -14,7 +14,9 @@ use pocketmine\scheduler\TaskHandler;
 use pocketmine\Server;
 use poggit\libasynql\DataConnector;
 use poggit\libasynql\libasynql;
+use poggit\libasynql\result\SqlSelectResult;
 use poggit\libasynql\SqlError;
+use poggit\libasynql\SqlThread;
 use RuntimeException;
 use Throwable;
 use UnexpectedValueException;
@@ -383,14 +385,20 @@ class SimpleSQL {
 		}
 
 		try {
-		$this->db->executeGeneric(
+		$this->db->executeMulti(
 			"simplesql.save",
 			[
 				"id" => $id,
 				"data" => $encodedData,
 				"revision" => $newRevision,
 			],
-			function () use ($session, $id, $data, $newRevision, $mutationVersion, $finish): void {
+			SqlThread::MODE_SELECT,
+			function (array $results) use ($session, $id, $data, $encodedData, $newRevision, $mutationVersion, $finish): void {
+				if (!$this->savedRowsMatch($results, [$id => ["data" => $encodedData, "revision" => $newRevision]])) {
+					$this->logger?->error("[SimpleSQL] SQL save for '$id' was not confirmed by a readback.");
+					$finish(false);
+					return;
+				}
 				// SQL persistence confirmed - now safe to increment revision
 				$session->_setRevision($newRevision);
 				$session->_markCleanIfUnchanged($mutationVersion);
@@ -465,18 +473,42 @@ class SimpleSQL {
 		};
 
 		try {
-			$this->db->executeGeneric("simplesql.save_pair", [
+			$this->db->executeMulti("simplesql.save_pair", [
 				"first_id" => $firstId,
 				"first_data" => $firstJson,
 				"first_revision" => $firstRevision,
 				"second_id" => $secondId,
 				"second_data" => $secondJson,
 				"second_revision" => $secondRevision,
-			], static function () use ($finish): void { $finish(true); }, static function (SqlError $error) use ($finish): void { $finish(false); });
+			], SqlThread::MODE_SELECT, function (array $results) use ($firstId, $firstJson, $firstRevision, $secondId, $secondJson, $secondRevision, $finish): void {
+				$confirmed = $this->savedRowsMatch($results, [
+					$firstId => ["data" => $firstJson, "revision" => $firstRevision],
+					$secondId => ["data" => $secondJson, "revision" => $secondRevision],
+				]);
+				if (!$confirmed) $this->logger?->error("[SimpleSQL] Paired SQL write was not confirmed by a readback.");
+				$finish($confirmed);
+			}, static function (SqlError $error) use ($finish): void { $finish(false); });
 		} catch (Throwable $error) {
 			$this->logger?->error("[SimpleSQL] Paired save could not start: " . $error->getMessage());
 			$finish(false);
 		}
+	}
+
+	/**
+	 * @param array<array-key, mixed> $results
+	 * @param array<string, array{data: string, revision: int}> $expected
+	 */
+	private function savedRowsMatch(array $results, array $expected): bool {
+		$last = $results[array_key_last($results)] ?? null;
+		if (!$last instanceof SqlSelectResult) return false;
+		$rows = $last->getRows();
+		if (count($rows) !== count($expected)) return false;
+		foreach ($rows as $row) {
+			if (!isset($row["id"], $row["data"], $row["revision"]) || !is_string($row["id"]) ||
+				!isset($expected[$row["id"]]) || $row["data"] !== $expected[$row["id"]]["data"] ||
+				$row["revision"] !== $expected[$row["id"]]["revision"]) return false;
+		}
+		return true;
 	}
 
 	private function resumeQueuedPairSave(Session $session, bool $success): void {
