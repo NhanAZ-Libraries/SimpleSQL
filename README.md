@@ -20,7 +20,7 @@ The `virion.yml` minimum is API `5.0.0`. The [validation workflow](.github/workf
 
 ## Installation and build
 
-Add SimpleSQL and libasynql to the virion inputs of your plugin build. Include both SQL resource files from [`resources/simplesql`](resources/simplesql) at the same paths in your plugin. SimpleSQL is a library inside the resulting plugin PHAR, not a standalone server plugin.
+Add [SimpleSQL source](https://github.com/NhanAZ-Libraries/SimpleSQL/releases) and libasynql to the virion inputs of your plugin build. Include both SQL resource files from [`resources/simplesql`](resources/simplesql) at the same paths in your plugin. SimpleSQL is a library inside the resulting plugin PHAR, not a standalone server plugin.
 
 Use [DevTools](https://github.com/NhanAZ/DevTools) to build and validate the plugin PHAR. Pin the virion sources and DevTools revision in your build workflow so that the artifact can be reproduced. The [SimpleEconomy build workflow](https://github.com/NhanAZ-Plugins/SimpleEconomy/blob/main/.github/workflows/devtools.yml) shows one consumer configuration, but its pinned revisions should be reviewed before reuse.
 
