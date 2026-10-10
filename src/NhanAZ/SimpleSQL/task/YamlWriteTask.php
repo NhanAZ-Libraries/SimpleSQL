@@ -34,7 +34,7 @@ class YamlWriteTask extends AsyncTask {
 
 	/**
 	 * @param string  $filePath   Absolute path to the target .yml file.
-	 * @param array   $data       Data map to write.
+	 * @param array<array-key, mixed> $data Data map to write.
 	 * @param int     $revision   Revision to embed in the YAML document.
 	 * @param Closure $onComplete Callback: fn(bool $success, string $error): void
 	 */
@@ -50,8 +50,11 @@ class YamlWriteTask extends AsyncTask {
 
 	public function onRun(): void {
 		// ── Deserialize data ──
-		/** @var array $data */
-		$data = unserialize($this->serializedData);
+		$data = unserialize($this->serializedData, ["allowed_classes" => false]);
+		if (!is_array($data)) {
+			$this->error = "Invalid serialized data for: " . $this->filePath;
+			return;
+		}
 
 		// ── Build YAML document ──
 		$yamlDocument = [
@@ -60,7 +63,7 @@ class YamlWriteTask extends AsyncTask {
 		];
 
 		$yamlContent = @yaml_emit($yamlDocument, YAML_UTF8_ENCODING);
-		if ($yamlContent === false) {
+		if (!$yamlContent) {
 			// Extreme fallback: shouldn't happen with valid data
 			$this->success = false;
 			$this->error = "yaml_emit() failed for: " . $this->filePath;

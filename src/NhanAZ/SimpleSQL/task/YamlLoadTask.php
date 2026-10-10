@@ -6,6 +6,7 @@ namespace NhanAZ\SimpleSQL\task;
 
 use Closure;
 use pocketmine\scheduler\AsyncTask;
+use UnexpectedValueException;
 
 /**
  * AsyncTask that loads and parses a YAML file from disk.
@@ -65,11 +66,14 @@ class YamlLoadTask extends AsyncTask {
 		}
 
 		// ── Validate structure ──
-		$revision = (int) ($parsed["revision"] ?? 0);
+		$revision = $parsed["revision"] ?? null;
+		if (is_string($revision) && $revision !== "" && ctype_digit($revision)) {
+			$revision = filter_var($revision, FILTER_VALIDATE_INT);
+		}
 		$data = $parsed["data"] ?? [];
 
-		if (!is_array($data)) {
-			$this->handleCorruption("'data' field is not an array");
+		if (!is_array($data) || !is_int($revision) || $revision < 0) {
+			$this->handleCorruption("Invalid data or revision field");
 			return;
 		}
 
@@ -100,8 +104,10 @@ class YamlLoadTask extends AsyncTask {
 	}
 
 	public function onCompletion(): void {
-		/** @var array $result */
-		$result = unserialize($this->resultSerialized);
+		$result = unserialize($this->resultSerialized, ["allowed_classes" => false]);
+		if (!is_array($result)) {
+			throw new UnexpectedValueException("Invalid YAML task result.");
+		}
 		/** @var Closure $onComplete */
 		$onComplete = $this->fetchLocal("onComplete");
 		$onComplete($this->sessionId, $result);

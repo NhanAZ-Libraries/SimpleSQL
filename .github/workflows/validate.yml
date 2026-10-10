@@ -1,0 +1,59 @@
+name: Analyze and validate SimpleSQL virion
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out SimpleSQL
+        uses: actions/checkout@v7.0.1
+
+      - name: Check out libasynql for static analysis
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: poggit/libasynql
+          ref: 270f8ae93e3271206eadd42ca81862ab9a54f322
+          path: .devtools-dependencies/libasynql
+          persist-credentials: false
+
+      - name: Check out Axolotl-PM PHP setup helper
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: axolotl-pm/setup-php-action
+          ref: b8c3f9add4f2ad4a5e2624a1112aba899ee8db0e
+          path: .devtools-dependencies/setup-php-action
+          persist-credentials: false
+
+      - name: Set up Axolotl-PM PHP environment
+        shell: bash
+        env:
+          INPUT_PHP-VERSION: "8.1"
+          INPUT_PM-VERSION-MAJOR: "5"
+          INPUT_INSTALL-PATH: ./.php-bin
+        run: node .devtools-dependencies/setup-php-action/dist/index.js
+
+      - name: Validate Composer metadata
+        run: composer validate --strict
+
+      - name: Install locked development dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress --no-scripts --no-plugins
+
+      - name: Run PHPStan at maximum level
+        run: composer phpstan
+
+      - name: Run SQL load and save regression tests
+        run: |
+          php tests/sql-load-safety.php
+          php tests/save-lifecycle.php
+
+      - name: Lint PHP source and tests
+        run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l

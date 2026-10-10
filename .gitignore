@@ -1,0 +1,4 @@
+/vendor/
+/.devtools-dependencies/
+/.php-bin/
+/var/

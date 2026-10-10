@@ -1,0 +1,9 @@
+parameters:
+    level: max
+    paths:
+        - src
+    scanDirectories:
+        - vendor/axolotl-pm/pocketmine-mp/src
+        - vendor/axolotl-pm/pocketmine-mp/generated
+        - .devtools-dependencies/libasynql/libasynql/src
+    tmpDir: var/phpstan

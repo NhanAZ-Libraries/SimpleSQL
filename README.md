@@ -1,426 +1,109 @@
 # SimpleSQL
 
-**Hybrid SQL-YAML data management for PocketMine-MP plugins.**
+SimpleSQL is a virion that stores plugin session data in SQL and maintains a YAML mirror for offline inspection and editing.
 
-SimpleSQL combines the **performance and reliability of SQL** with the **human-friendly editability of YAML** files. During runtime, SQL (via [libasynql](https://github.com/poggit/libasynql)) is the authoritative source of truth. YAML files are maintained as a synchronized mirror that server owners can read and edit while the server is offline.
+[![Analyze and validate SimpleSQL virion](https://github.com/NhanAZ-Libraries/SimpleSQL/actions/workflows/validate.yml/badge.svg)](https://github.com/NhanAZ-Libraries/SimpleSQL/actions/workflows/validate.yml)
 
----
+## How it works
 
-## Table of Contents
+SimpleSQL uses [libasynql](https://github.com/poggit/libasynql) for asynchronous SQLite or MySQL queries. It loads the SQL row and YAML file before opening a session. The copy with the higher revision wins. If an offline YAML edit wins, SimpleSQL waits for the SQL synchronization to succeed before exposing the session. A failed SQL read leaves the session unopened and invokes the optional error callback.
 
-- [Why SimpleSQL?](#why-simplesql)
-- [How It Works](#how-it-works)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Developer Guide](#developer-guide)
-  - [Setup](#setup)
-  - [Opening a Session](#opening-a-session)
-  - [Reading & Writing Data](#reading--writing-data)
-  - [Saving & Closing](#saving--closing)
-  - [Graceful Shutdown](#graceful-shutdown)
-- [Server Owner's Guide - Editing YAML Files](#server-owners-guide--editing-yaml-files)
-- [Performance Tips](#performance-tips)
-- [API Reference](#api-reference)
-- [License](#license)
+Session changes are held in memory until saved. Saves write to SQL first and then queue a YAML mirror write. Writes for one session run in order, and a change made while a save is running remains dirty until it is saved separately. A failed save keeps the session open. During shutdown, a failed SQL save causes SimpleSQL to write a separate recovery snapshot if the filesystem is available.
 
----
+## Requirements and compatibility
 
-## Why SimpleSQL?
+- Axolotl-PM API `5.0.0` or another compatible API 5 server.
+- PHP 8.1 or newer with the extensions required by the server, including YAML.
+- [libasynql](https://github.com/poggit/libasynql) bundled as a separate virion.
 
-| Feature | Raw SQL | Raw YAML | **SimpleSQL** |
-|---|---|---|---|
-| Performance at scale | ✅ Fast queries | ❌ Full file I/O | ✅ SQL at runtime |
-| Human-editable data | ❌ Need DB tools | ✅ Text editor | ✅ YAML mirror |
-| Async (no lag) | ✅ libasynql | ❌ Main thread | ✅ Both async |
-| Crash recovery | ✅ ACID | ❌ Corruption risk | ✅ SQL source of truth |
-| Offline editing | ❌ DB must be up | ✅ Edit anytime | ✅ Revision-based sync |
+The `virion.yml` minimum is API `5.0.0`. The [validation workflow](.github/workflows/validate.yml) pins its analysis dependencies and records the exact server source used by PHPStan. This does not establish compatibility with every Axolotl-PM 5.x release. Validate your assembled plugin and server combination before deploying it.
 
-**The best of both worlds.** Your plugin gets SQL performance during gameplay, and your server owners get YAML files they can edit with Notepad.
+## Installation and build
 
----
+Add SimpleSQL and libasynql to the virion inputs of your plugin build. Include both SQL resource files from [`resources/simplesql`](resources/simplesql) at the same paths in your plugin. SimpleSQL is a library inside the resulting plugin PHAR, not a standalone server plugin.
 
-## How It Works
+Use [DevTools](https://github.com/NhanAZ/DevTools) to build and validate the plugin PHAR. Pin the virion sources and DevTools revision in your build workflow so that the artifact can be reproduced. The [SimpleEconomy build workflow](https://github.com/NhanAZ-Plugins/SimpleEconomy/blob/main/.github/workflows/devtools.yml) shows one consumer configuration, but its pinned revisions should be reviewed before reuse.
 
-```
-┌─────────────┐     openSession()     ┌──────────────┐
-│  Your Plugin │ ──────────────────▶  │   SimpleSQL   │
-└─────────────┘                       └──────┬───────┘
-                                             │
-                              ┌──────────────┼──────────────┐
-                              ▼              │              ▼
-                        ┌──────────┐         │       ┌────────────┐
-                        │ SQL Load │         │       │ YAML Load  │
-                        │ (async)  │         │       │ (AsyncTask)│
-                        └────┬─────┘         │       └─────┬──────┘
-                             │               │             │
-                             └───────┬───────┘─────────────┘
-                                     ▼
-                            ┌─────────────────┐
-                            │ Conflict Resolve │
-                            │ (higher revision │
-                            │  wins)           │
-                            └────────┬────────┘
-                                     ▼
-                              ┌────────────┐
-                              │  Session    │ ◀── get() / set()
-                              │  (in-RAM)   │
-                              └─────┬──────┘
-                                    │ save()
-                              ┌─────┴──────┐
-                              ▼            ▼
-                          ┌───────┐   ┌────────┐
-                          │  SQL  │   │  YAML  │
-                          │ WRITE │   │ MIRROR │
-                          └───────┘   └────────┘
+The plugin must contain these resources.
+
+```text
+resources/simplesql/mysql.sql
+resources/simplesql/sqlite.sql
 ```
 
-1. **Open** - Both SQL and YAML are loaded concurrently. Conflict resolution picks the source with the higher `revision` number.
-2. **Use** - Your plugin reads/writes a lightweight in-memory `Session` object. Zero I/O on the main thread.
-3. **Save** - Data is written to SQL first (source of truth). On success, a YAML mirror write is queued asynchronously.
-4. **Close** - Dirty sessions are auto-saved. Memory is freed (no leaks).
-
----
-
-## Requirements
-
-- **PocketMine-MP** API 5.0.0+
-- **PHP** 8.1 or newer
-- **[libasynql](https://github.com/poggit/libasynql)** v4.x (included as a virion dependency)
-
----
-
-## Installation
-
-SimpleSQL is distributed as a **[Virion](https://github.com/poggit/support/blob/master/virion.md)** library.
-
-### Using Poggit
-
-Add SimpleSQL **and** its dependency [libasynql](https://github.com/poggit/libasynql) as libraries in your `.poggit.yml`:
-
-```yaml
-projects:
-  YourPlugin:
-    path: ""
-    libs:
-      - src: NhanAZ-Libraries/SimpleSQL/SimpleSQL
-        version: ^1.0.0
-      - src: poggit/libasynql/libasynql
-        version: ^4.0.0
-```
-
-> **Note:** Poggit does not resolve transitive virion dependencies automatically. Since SimpleSQL uses libasynql internally, you **must** include both virions in your `libs` list.
-
-### Manual Installation (DEVirion)
-
-1. Download the SimpleSQL `.phar` virion.
-2. Place it in your server's `virions/` directory.
-3. Install the [DEVirion](https://github.com/poggit/devirion) plugin.
-
-### SQL Resource Files
-
-Your plugin **must** include the SQL resource files. Copy them from SimpleSQL's [`resources/simplesql/`](resources/simplesql/) into your plugin:
-
-```
-your-plugin/
-├── resources/
-│   └── simplesql/
-│       ├── mysql.sql
-│       └── sqlite.sql
-├── src/
-│   └── ...
-└── plugin.yml
-```
-
-These files define the table schema and prepared statements that SimpleSQL uses internally.
-
-> **Important:** Each SQL file **must** start with a dialect declaration on the very first line (`-- #!sqlite` or `-- #!mysql`). See the [libasynql Prepared Statement File format](https://poggit.github.io/libasynql/doxygen/) for details.
-
-### Database Configuration
-
-Add a database section to your plugin's `config.yml`:
+Configure a database section in your plugin's config file. For example, SQLite can use the following settings.
 
 ```yaml
 database:
-  # "sqlite" or "mysql"
   type: sqlite
   sqlite:
     file: data.sqlite
-  mysql:
-    host: 127.0.0.1
-    username: root
-    password: ""
-    schema: your_database
   worker-limit: 1
 ```
 
----
+Refer to [libasynql](https://github.com/poggit/libasynql) for MySQL configuration and prepared statement requirements.
 
-## Developer Guide
+## Using sessions
 
-### Setup
-
-Initialize SimpleSQL in your plugin's `onEnable()` and shut it down in `onDisable()`:
+Create the manager in `onEnable()` and close it in `onDisable()`. Validate the database configuration before passing it to `create()`.
 
 ```php
+use NhanAZ\SimpleSQL\Session;
 use NhanAZ\SimpleSQL\SimpleSQL;
 
-class MyPlugin extends PluginBase {
-
-    private SimpleSQL $simpleSQL;
-
-    protected function onEnable(): void {
-        $this->saveDefaultConfig();
-        $this->simpleSQL = SimpleSQL::create(
-            plugin: $this,
-            dbConfig: $this->getConfig()->get("database"),
-        );
-    }
-
-    protected function onDisable(): void {
-        $this->simpleSQL->close();
-    }
-}
-```
-
-### Opening a Session
-
-Sessions are loaded **asynchronously** from both SQL and YAML. You receive the session in a callback:
-
-```php
-$this->simpleSQL->openSession("Steve", function(Session $session): void {
-    // Session is fully loaded and conflict-resolved.
-    // Safe to read/write data here.
-    $this->getLogger()->info("Session ready for " . $session->getId());
-});
-```
-
-> **Important:** You cannot use a session before the callback fires. Always check `hasSession()` or `isLoading()` if you need to guard against early access.
-
-### Reading & Writing Data
-
-The `Session` object provides a simple key-value API:
-
-```php
-// Get a value (with default)
-$coins = $session->get("coins", 0);
-
-// Set a value
-$session->set("coins", $coins + 100);
-
-// Check existence
-if ($session->has("vip")) {
-    // ...
+$database = $this->getConfig()->get("database");
+if (!is_array($database)) {
+    throw new \RuntimeException("Invalid database configuration");
 }
 
-// Remove a key
-$session->remove("temp_data");
+$simpleSQL = SimpleSQL::create($this, $database);
+$simpleSQL->openSession(
+    "Steve",
+    function (Session $session): void {
+        $coins = $session->get("coins", 0);
+        $session->set("coins", (int) $coins + 100);
+        $session->save();
+    },
+    function (string $reason): void {
+        // Report the failure to your plugin's logger or caller.
+    },
+);
 
-// Get all data as an array
-$allData = $session->getAll();
+// Call $simpleSQL->close() from your plugin's onDisable().
 ```
 
-Values can be any JSON-serializable type: `int`, `float`, `string`, `bool`, `array`, or `null`.
+`openSession()` is asynchronous. Read or edit data only after its success callback runs. The error callback is optional, but consumers should provide one so a database outage does not leave an operation waiting silently.
 
-### Saving & Closing
+`Session::get()`, `set()`, `remove()`, `has()`, `getAll()` and `setAll()` operate on in-memory data. `save()` accepts an optional callback receiving a success boolean. `closeSession()` saves dirty data before releasing it. Its completion callback runs after a successful close. If SQL cannot save the data, the session stays open for a retry.
 
-```php
-// Explicit save (async) - SQL first, then YAML mirror
-$session->save(function(bool $success): void {
-    if ($success) {
-        echo "Saved!";
-    }
-});
+## Offline YAML edits and recovery
 
-// Close a session (auto-saves if dirty, then frees memory)
-$this->simpleSQL->closeSession("Steve", function(): void {
-    echo "Session closed.";
-});
+Stop the server before editing a YAML mirror. Each file has `revision` and `data` fields. Increment `revision` when changing the data so that the offline edit wins over the SQL row at the next load.
 
-// Or close via the Session object directly:
-$session->close();
-```
-
-### Graceful Shutdown
-
-Always call `close()` in your plugin's `onDisable()`. This:
-- Cancels all pending loads.
-- Persists all dirty sessions to SQL.
-- Waits for SQL queries to finish.
-- Closes the database connection (if SimpleSQL owns it).
-
-```php
-protected function onDisable(): void {
-    $this->simpleSQL->close();
-}
-```
-
-YAML writes are intentionally **skipped** during shutdown (SQL is the source of truth). The next time a session loads, the YAML file will be automatically synced.
-
----
-
-## Server Owner's Guide - Editing YAML Files
-
-One of SimpleSQL's best features is that all player data is mirrored to human-readable `.yml` files. This means you can view and edit data using any text editor - **but only while the server is stopped.**
-
-### Where Are the Files?
-
-By default, YAML files are stored in your plugin's data folder:
-
-```
-plugins/YourPlugin/simplesql/
-├── s/
-│   └── Steve.yml
-├── a/
-│   └── Alex.yml
-└── _/
-    └── _specialName.yml
-```
-
-Files are organized into subdirectories by the first letter of the player name (lowercase).
-
-### What Does a YAML File Look Like?
-
-```yaml
-revision: 5
-data:
-  coins: 1500
-  rank: "vip"
-  homes:
-    base:
-      x: 100
-      y: 64
-      z: -200
-      world: "lobby"
-```
-
-### How to Edit Safely
-
-> **⚠️ CRITICAL RULE: Always increment the `revision` number!**
-
-When SimpleSQL loads a session, it compares the `revision` in the YAML file against the `revision` in the SQL database. **The higher revision wins.** If you edit the YAML but leave the revision unchanged, your changes will be overwritten by the SQL data.
-
-**Step-by-step:**
-
-1. **Stop the server completely.** Never edit YAML files while the server is running.
-2. **Open the `.yml` file** in a text editor (Notepad, VS Code, Nano, etc.).
-3. **Make your changes** to the values under `data:`.
-4. **Increment the `revision` number** by at least 1 (e.g., `5` → `6`).
-5. **Save the file** and start the server.
-
-**Example - Giving a player 1000 coins:**
-
-Before:
-```yaml
-revision: 5
-data:
-  coins: 500
-```
-
-After:
 ```yaml
 revision: 6
 data:
   coins: 1500
 ```
 
-### Common Mistakes to Avoid
+If a YAML file cannot be parsed, SimpleSQL renames it with a `.broken` suffix and uses the SQL row if one is available. Check the log and inspect the renamed file before discarding it.
 
-| Mistake | What Happens | Fix |
-|---|---|---|
-| Editing while server is running | Your changes are overwritten immediately | Always stop the server first |
-| Forgetting to increment `revision` | SQL has equal or higher revision; your edits are ignored | Always bump the revision by +1 |
-| Breaking YAML syntax (bad indentation) | File is marked corrupt and renamed to `.broken`; SQL data is used instead | Use a YAML validator or be careful with indentation |
-| Deleting the YAML file | No effect - it will be recreated from SQL on next session load | This is safe, but pointless |
+If SQL fails during shutdown, SimpleSQL attempts to write `player.yml.<random>.recovery.yml` alongside the normal mirror. The recovery file is **not loaded automatically**. With the server stopped, inspect the database and recovery file, then restore the desired data to the normal YAML file with a revision higher than the SQL row. Keep a copy of both before making changes. A recovery snapshot also depends on a writable filesystem, so maintain ordinary database and filesystem backups.
 
-### Recovering from Corruption
+## Development
 
-If a YAML file has invalid syntax, SimpleSQL will:
-1. Rename the corrupt file to `PlayerName.yml.broken` (for your reference).
-2. Fall back to the SQL database data (which is always reliable).
-3. Create a fresh YAML mirror on the next save.
+The Composer lockfile pins the server and analysis toolchain for repeatable checks. The CI workflow also pins the libasynql source used during static analysis.
 
-**You never lose data** - SQL is always the authoritative source.
-
----
-
-## Performance Tips
-
-### SQLite vs MySQL
-
-| Scenario | Recommendation |
-|---|---|
-| **Small server** (< 50 players) | **SQLite** - Zero setup, single file, no external service needed. |
-| **Medium server** (50–200 players) | **SQLite** is usually fine. Switch to MySQL if you notice slow saves. |
-| **Large server / Network** (200+ players) | **MySQL** - Better concurrency, shared across multiple servers. |
-| **BungeeCord / Proxy network** | **MySQL** - Required for cross-server data sharing. |
-
-### Write Throttling
-
-SimpleSQL throttles YAML writes to prevent I/O storms. The default is **3 writes per tick**. For large servers, you can increase this:
-
-```php
-$simpleSQL = SimpleSQL::create(
-    plugin: $this,
-    dbConfig: $config,
-    maxWritesPerTick: 5, // Increase for high-throughput servers
-);
+```sh
+composer validate --strict
+composer install --no-interaction --prefer-dist --no-scripts --no-plugins
+composer phpstan
+php tests/sql-load-safety.php
+php tests/save-lifecycle.php
 ```
 
-### Memory Safety
+The regression scripts test load failure barriers, ordered saves and shutdown recovery. They do not replace a runtime smoke test of a plugin PHAR containing both virions.
 
-**Always close sessions when they are no longer needed.** SimpleSQL holds session data in RAM. If you never call `closeSession()`, memory usage will grow indefinitely.
+## Support and license
 
-The recommended pattern for player data:
-- `PlayerJoinEvent` → `openSession()`
-- `PlayerQuitEvent` → `closeSession()`
-
----
-
-## API Reference
-
-### SimpleSQL (Main Class)
-
-| Method | Description |
-|---|---|
-| `create(PluginBase, array, ?string, int): self` | Factory: creates instance with libasynql + tick task |
-| `openSession(string $id, callable $callback): void` | Load session from SQL + YAML (async) |
-| `getSession(string $id): ?Session` | Get an active session (or `null`) |
-| `hasSession(string $id): bool` | Check if a session is active |
-| `isLoading(string $id): bool` | Check if a session is currently loading |
-| `saveSession(Session, ?callable): void` | Persist to SQL, then queue YAML mirror |
-| `closeSession(string $id, ?callable): void` | Close session (auto-saves if dirty) |
-| `tick(): void` | Drive the write scheduler (auto if using `create()`) |
-| `close(): void` | Graceful shutdown |
-| `getDatabase(): DataConnector` | Access the underlying DataConnector |
-| `getYamlDataPath(): string` | Get the YAML data directory |
-| `getSessionCount(): int` | Number of active sessions |
-| `getSessionIds(): string[]` | List of active session IDs |
-
-### Session
-
-| Method | Description |
-|---|---|
-| `getId(): string` | Session identifier |
-| `get(string $key, mixed $default = null): mixed` | Read a value |
-| `set(string $key, mixed $value): void` | Write a value |
-| `remove(string $key): void` | Delete a key |
-| `has(string $key): bool` | Check if a key exists |
-| `getAll(): array` | Get all data |
-| `setAll(array $data): void` | Replace all data |
-| `getRevision(): int` | Current revision number |
-| `isDirty(): bool` | Has unsaved changes? |
-| `isClosed(): bool` | Has this session been closed? |
-| `save(?callable $onComplete = null): void` | Persist (async) |
-| `close(?callable $onComplete = null): void` | Close session |
-
----
-
-## Example Plugin
-
-**[SimpleEconomy](https://github.com/NhanAZ-Plugins/SimpleEconomy)** — A production-ready economy plugin built with SimpleSQL. Great reference for learning how to use SimpleSQL in a real plugin.
-
----
-
-## License
-
-MIT License. See [LICENSE](LICENSE) for details.
+Report defects through [GitHub Issues](https://github.com/NhanAZ-Libraries/SimpleSQL/issues) or [NhanAZ Discord](https://discord.gg/j2X83ujT6c). SimpleSQL is licensed under the [MIT License](LICENSE). libasynql has its own license and must retain its notices when bundled.

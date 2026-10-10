@@ -23,11 +23,13 @@ class PendingSession {
 
 	// ── SQL result ──
 	private bool $sqlLoaded = false;
+	/** @var array<array-key, mixed>|null */
 	private ?array $sqlData = null;
 	private int $sqlRevision = 0;
 
 	// ── YAML result ──
 	private bool $yamlLoaded = false;
+	/** @var array<array-key, mixed>|null */
 	private ?array $yamlData = null;
 	private int $yamlRevision = 0;
 	private bool $yamlCorrupt = false;
@@ -35,6 +37,7 @@ class PendingSession {
 
 	/** Whether this pending session has been cancelled (e.g. by closeSession during load). */
 	private bool $cancelled = false;
+	private bool $resolutionStarted = false;
 
 	/**
 	 * @param string    $id       Session identifier.
@@ -45,12 +48,24 @@ class PendingSession {
 		private readonly string $id,
 		private readonly SimpleSQL $manager,
 		private readonly Closure $callback,
+		private readonly ?Closure $onError = null,
 	) {}
+
+	public function onLoadFailed(string $reason): void {
+		if ($this->cancelled) {
+			return;
+		}
+		$this->cancelled = true;
+		$this->manager->_abortPending($this->id, $this);
+		if ($this->onError !== null) {
+			($this->onError)($reason);
+		}
+	}
 
 	/**
 	 * Called when the SQL load completes (from libasynql callback).
 	 *
-	 * @param array|null $data     Decoded data array, or null if no row found.
+	 * @param array<array-key, mixed>|null $data Decoded data array, or null if no row found.
 	 * @param int        $revision Revision from SQL, or 0 if no row.
 	 */
 	public function onSqlLoaded(?array $data, int $revision): void {
@@ -63,7 +78,7 @@ class PendingSession {
 	/**
 	 * Called when the YAML AsyncTask completes (from onCompletion callback).
 	 *
-	 * @param array|null $data     Parsed YAML data, or null if missing/corrupt.
+	 * @param array<array-key, mixed>|null $data Parsed YAML data, or null if missing/corrupt.
 	 * @param int        $revision YAML revision, or 0 if unavailable.
 	 * @param bool       $missing  True if the YAML file did not exist.
 	 * @param bool       $corrupt  True if the YAML file was corrupt (renamed to .broken).
@@ -97,7 +112,12 @@ class PendingSession {
 	 * This is the CORE of the conflict resolution logic.
 	 */
 	private function tryResolve(): void {
-		if (!$this->sqlLoaded || !$this->yamlLoaded || $this->cancelled) {
+		if (!$this->sqlLoaded || !$this->yamlLoaded || $this->cancelled || $this->resolutionStarted) {
+			return;
+		}
+		$this->resolutionStarted = true;
+		if ($this->yamlCorrupt && $this->sqlData === null) {
+			$this->onLoadFailed("YAML is corrupt and SQL has no row to recover from.");
 			return;
 		}
 
@@ -139,18 +159,28 @@ class PendingSession {
 			}
 		}
 
-		// Create the active session
-		$session = $this->manager->_createSession($this->id, $finalData, $finalRevision);
-
-		// Dispatch any necessary syncs
 		if ($syncToSql) {
-			$this->manager->_persistToSql($this->id, $finalData, $finalRevision);
+			$this->manager->_persistToSql($this->id, $finalData, $finalRevision, function (bool $success) use ($finalData, $finalRevision, $syncToYaml): void {
+				if ($this->cancelled) {
+					return;
+				}
+				if (!$success) {
+					$this->onLoadFailed("SQL synchronization failed.");
+					return;
+				}
+				$this->complete($finalData, $finalRevision, $syncToYaml);
+			});
+			return;
 		}
-		if ($syncToYaml) {
-			$this->manager->_persistToYaml($this->id, $finalData, $finalRevision);
-		}
+		$this->complete($finalData, $finalRevision, $syncToYaml);
+	}
 
-		// Invoke the developer callback
+	/** @param array<array-key, mixed> $data */
+	private function complete(array $data, int $revision, bool $syncToYaml): void {
+		$session = $this->manager->_createSession($this->id, $data, $revision);
+		if ($syncToYaml) {
+			$this->manager->_persistToYaml($this->id, $data, $revision);
+		}
 		($this->callback)($session);
 	}
 }

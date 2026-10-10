@@ -25,10 +25,11 @@ class Session {
 
 	/** Whether data has been modified since the last successful save. */
 	private bool $dirty = false;
+	private int $mutationVersion = 0;
 
 	/**
 	 * @param string    $id       Unique session identifier (e.g. player UUID or name).
-	 * @param array     $data     Key-value data map.
+	 * @param array<array-key, mixed> $data Key-value data map.
 	 * @param int       $revision Monotonic revision counter (incremented after each SQL persist).
 	 * @param SimpleSQL $manager  Parent manager reference for persistence operations.
 	 */
@@ -69,6 +70,7 @@ class Session {
 		if (!isset($this->data[$key]) || $this->data[$key] !== $value) {
 			$this->data[$key] = $value;
 			$this->dirty = true;
+			$this->mutationVersion++;
 		}
 	}
 
@@ -80,6 +82,7 @@ class Session {
 		if (isset($this->data[$key]) || array_key_exists($key, $this->data)) {
 			unset($this->data[$key]);
 			$this->dirty = true;
+			$this->mutationVersion++;
 		}
 	}
 
@@ -94,7 +97,7 @@ class Session {
 	/**
 	 * Return all data as an associative array.
 	 *
-	 * @return array<string, mixed>
+	 * @return array<array-key, mixed>
 	 */
 	public function getAll(): array {
 		$this->assertOpen();
@@ -110,6 +113,7 @@ class Session {
 		$this->assertOpen();
 		$this->data = $data;
 		$this->dirty = true;
+		$this->mutationVersion++;
 	}
 
 	/**
@@ -122,6 +126,7 @@ class Session {
 
 	/**
 	 * Whether the data has been modified since the last save.
+	 * @phpstan-impure
 	 */
 	public function isDirty(): bool {
 		return $this->dirty;
@@ -180,6 +185,16 @@ class Session {
 		$this->dirty = false;
 	}
 
+	public function _getMutationVersion(): int {
+		return $this->mutationVersion;
+	}
+
+	public function _markCleanIfUnchanged(int $mutationVersion): void {
+		if ($this->mutationVersion === $mutationVersion) {
+			$this->dirty = false;
+		}
+	}
+
 	/**
 	 * @internal Mark the session as closed and release data to prevent memory leaks.
 	 */
@@ -190,7 +205,7 @@ class Session {
 
 	/**
 	 * @internal Access the raw data array for persistence.
-	 * @return array<string, mixed>
+	 * @return array<array-key, mixed>
 	 */
 	public function _getData(): array {
 		return $this->data;

@@ -30,13 +30,13 @@ class WriteScheduler {
 
 	/**
 	 * Queued write payloads awaiting dispatch.
-	 * @var array<string, array{data: array, revision: int}>
+	 * @var array<string, array{data: array<array-key, mixed>, revision: int}>
 	 */
 	private array $queued = [];
 
 	/**
 	 * Coalesced data for IDs that received a new write while RUNNING.
-	 * @var array<string, array{data: array, revision: int}>
+	 * @var array<string, array{data: array<array-key, mixed>, revision: int}>
 	 */
 	private array $pendingCoalesce = [];
 
@@ -57,7 +57,7 @@ class WriteScheduler {
 	 * - RUNNING → store as coalesced data for re-dispatch after completion.
 	 *
 	 * @param string $id       Session identifier.
-	 * @param array  $data     Data to write to YAML.
+	 * @param array<array-key, mixed> $data Data to write to YAML.
 	 * @param int    $revision Revision number to embed in the YAML file.
 	 */
 	public function scheduleWrite(string $id, array $data, int $revision): void {
