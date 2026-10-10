@@ -105,7 +105,7 @@ $reflection->getProperty("yamlDataPath")->setValue($manager, "data" . DIRECTORY_
 $getYamlPath = $reflection->getMethod("getYamlPath");
 foreach (["../outside", "CON", "player"] as $id) {
 	$path = $getYamlPath->invoke($manager, $id);
-	if (!is_string($path) || !str_starts_with($path, "data" . DIRECTORY_SEPARATOR) || str_contains($path, "../") || str_contains($path, "..\\")) {
+	if (!is_string($path) || !str_starts_with($path, "data" . DIRECTORY_SEPARATOR) || str_contains($path, "../") || str_contains($path, "..\\") || rawurldecode(pathinfo($path, PATHINFO_FILENAME)) !== $id) {
 		throw new RuntimeException("A session ID escaped the YAML data directory.");
 	}
 }

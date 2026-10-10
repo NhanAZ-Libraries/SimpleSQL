@@ -663,7 +663,7 @@ class SimpleSQL {
 		}
 		$safeId = rawurlencode($id);
 		if (preg_match('/^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i', $safeId) === 1) {
-			$safeId = "%" . $safeId;
+			$safeId = sprintf("%%%02X%s", ord($safeId[0]), substr($safeId, 1));
 		}
 		return $this->yamlDataPath . $firstChar . DIRECTORY_SEPARATOR . $safeId . ".yml";
 	}
