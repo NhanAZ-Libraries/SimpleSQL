@@ -1,8 +1,15 @@
 # SimpleSQL
 
-SimpleSQL is a virion that stores plugin session data in SQL and maintains a YAML mirror for offline inspection and editing.
+SQL and YAML session storage virion for Axolotl-PM plugins
 
-[![Analyze and validate SimpleSQL virion](https://github.com/NhanAZ-Libraries/SimpleSQL/actions/workflows/validate.yml/badge.svg)](https://github.com/NhanAZ-Libraries/SimpleSQL/actions/workflows/validate.yml)
+[![CI](https://github.com/NhanAZ-Libraries/SimpleSQL/actions/workflows/validate.yml/badge.svg)](https://github.com/NhanAZ-Libraries/SimpleSQL/actions/workflows/validate.yml)
+[![Latest release](https://img.shields.io/github/v/release/NhanAZ-Libraries/SimpleSQL)](https://github.com/NhanAZ-Libraries/SimpleSQL/releases/latest)
+[![License](https://img.shields.io/github/license/NhanAZ-Libraries/SimpleSQL)](https://github.com/NhanAZ-Libraries/SimpleSQL/blob/main/LICENSE)
+[![Discord](https://img.shields.io/discord/986553214889517088?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/j2X83ujT6c)
+
+## Overview
+
+This library targets the PocketMine-MP and Axolotl-PM API 5 ecosystem and is maintained under [NhanAZ-Libraries](https://github.com/NhanAZ-Libraries).
 
 ## How it works
 
