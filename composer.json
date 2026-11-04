@@ -38,7 +38,8 @@
   "extra": {
     "virion": {
       "spec": "3.0",
-      "namespace-root": "NhanAZ\\SimpleSQL"
+      "namespace-root": "NhanAZ\\SimpleSQL",
+      "exclude-root-resources": true
     }
   }
 }
